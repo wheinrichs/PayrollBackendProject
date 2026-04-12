@@ -166,7 +166,8 @@ Configuration is managed via `.env` (not committed to Git) but an example file i
 ## Author
 
 **Winston Heinrichs**
-[View my other projects on my portfolio](www.winstonheinrichs.com)
+
+[View my other projects on my portfolio](https://www.winstonheinrichs.com)
 
 ---
 
