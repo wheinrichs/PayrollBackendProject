@@ -1,0 +1,25 @@
+# Build
+bin/
+obj/
+
+# User files
+*.user
+
+# VS Code
+.vscode/
+.vs/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Docker overrides
+docker-compose.override.yml
+
+# Uploads folder
+uploads/

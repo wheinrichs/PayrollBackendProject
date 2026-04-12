@@ -1,0 +1,188 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
+using PayrollBackendProject.API.Utilities;
+using PayrollBackendProject.Application.Interfaces.Repository;
+using PayrollBackendProject.Application.Interfaces.Services;
+using PayrollBackendProject.Application.Services;
+using PayrollBackendProject.Domain.Service;
+using PayrollBackendProject.Infrastructure.BackgroundJobs;
+using PayrollBackendProject.Infrastructure.Data;
+using PayrollBackendProject.Infrastructure.Repository;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+// Add a health check to the service to monitor the status of the application
+builder.Services.AddHealthChecks();
+
+builder.Services.AddControllers();
+
+builder.Configuration.AddEnvironmentVariables();
+
+// Setup authentication and JWT
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = jwtSettings["Key"] ?? throw new Exception("JWT key missing from configuraiton");
+// Setup how the tokens should be processed and what should be evaluated within the token
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            // When checking the token, check the token issuer against the application issuer
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings["Issuer"],
+
+            ValidateAudience = true,
+            ValidAudience = jwtSettings["Audience"],
+
+            // Checks the expiration of the token
+            ValidateLifetime = true,
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+        };
+    }
+    );
+builder.Services.AddAuthorization();
+
+// Add database information for Hangfire
+builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+
+// Setup the hangfire background worker
+builder.Services.AddHangfireServer();
+
+// Add service for clinician services
+builder.Services.AddScoped<IClinicianService, ClinicianService>();
+builder.Services.AddScoped<IClinicianRepository, ClinicianRepository>();
+
+// Add service for user accounts services
+builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Add service for UnitOfWork
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Add service for EHR User accounts
+builder.Services.AddScoped<IEHRUserAccountRepository, EHRUserAccountRepository>();
+
+// Add service for CSV parsing
+builder.Services.AddScoped<IImportService, ImportService>();
+builder.Services.AddScoped<IImportJob, ImportJob>();
+builder.Services.AddScoped<ICsvParserService, CsvParserService>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
+
+// Add services for PayRun and PayStatements
+builder.Services.AddScoped<IPayRunRepository, PayRunRepository>();
+builder.Services.AddScoped<IPayStatementRepository, PayStatementRepository>();
+builder.Services.AddScoped<IPayRunService, PayRunService>();
+builder.Services.AddScoped<PayrollCalculator, PayrollCalculator>();
+
+// Add service for tokens
+builder.Services.AddScoped<ITokenService, JwtTokenService>();
+
+// Add services for logging
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
+// Add database context, this specifies the type of database to connect to and the connection details
+builder.Services.AddDbContext<ClinicianDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add health check to the db context. Registers a built in health check class internally
+builder.Services.AddHealthChecks().AddDbContextCheck<ClinicianDbContext>(
+    // This is the name of the health check that will be logged - can be anything
+    name: "PayrollDBHealthCheck",
+    // This is the status that gets reported if the health check fails. Defaults to unhealthy so redundant here
+    failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+    // This specifies the health check as a readiness check and not a liveliness check
+    // Corresponds to the specified tag below under MapHealthChecks
+    tags: new string[] { "Readiness check" });
+
+// Add swagger support with documentation in the swagger doc and UI
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "PayrollBackendApi",
+        Version = "v1",
+        Description = "Backend API for Payroll"
+    });
+
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "Enter JWT token",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    };
+
+    options.AddSecurityDefinition("Bearer", securityScheme);
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
+
+var app = builder.Build();
+
+
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Setup the hangfire dashboard 
+// TODO FIX THIS AUTH
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] {new AllowAllDashboardAuthorizationFilter()}
+});
+
+
+// Specify the endpoints for the health checks
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    // This specifies that the endpoint should not run any custom checks. It should return 200 as long as it can respond
+    // This is specifically for a liveliness check
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    // This uses the method CanConnectAsync which is auto generated to see if it can connect to the DB
+    // This predicate filters the health checks and only runs the tagged ones. 
+    Predicate = check => check.Tags.Contains("Readiness check")
+});
+
+app.UseHttpsRedirection();
+
+app.UseAuthentication();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
