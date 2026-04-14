@@ -2,6 +2,10 @@
   <Folder Name="/Solution Items/">
     <File Path="docker-compose.yml" />
   </Folder>
+  <Project Path="PayrollBackendProject.API/PayrollBackendProject.API.csproj" />
+  <Project Path="PayrollBackendProject.Application/PayrollBackendProject.Application.csproj" />
+  <Project Path="PayrollBackendProject.Domain/PayrollBackendProject.Domain.csproj" />
+  <Project Path="PayrollBackendProject.Infrastructure/PayrollBackendProject.Infrastructure.csproj" />
   <Project Path="PayrollBackendProject.IntegrationTests/PayrollBackendProject.IntegrationTests.csproj" />
   <Project Path="PayrollBackendProject.UnitTests/PayrollBackendProject.UnitTests.csproj" />
   <Project Path="PayrollBackendProject/PayrollBackendProject.csproj" />

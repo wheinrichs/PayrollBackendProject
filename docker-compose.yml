@@ -3,8 +3,8 @@ version: '3.9'
 services:
   api:
     build:
-      context: ./PayrollBackendProject
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: PayrollBackendProject.API/Dockerfile
     ports:
       - "5000:8080"
     volumes:
