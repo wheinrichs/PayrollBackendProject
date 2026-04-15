@@ -20,7 +20,7 @@ namespace PayrollBackendProject.Domain.Entity
         public Guid? ClinicianId { get; private set; }
         public decimal PaymentAmount { get; private set; }
         public decimal AdjustmentAmount { get; private set; }
-        public AdjustmentCodeEnum AdjustmentCode { get; private set; }
+        public PaymentAdjustmentCodeEnum AdjustmentCode { get; private set; }
         public DateTime DateOfService { get; private set; }
         public string PatientId { get; private set; } = string.Empty;
         public string CPTCode { get; private set; } = string.Empty;
@@ -49,7 +49,7 @@ namespace PayrollBackendProject.Domain.Entity
             ClinicianId = paymentLineItem.ClinicianId;
             PaymentAmount = paymentLineItem.PaymentAmount;
             AdjustmentAmount = paymentLineItem.AdjustmentAmount;
-            AdjustmentCode = paymentLineItem.AdjustmentCode;
+            AdjustmentCode = paymentLineItem.PaymentAdjustmentCode;
             DateOfService = paymentLineItem.DateOfService;
             PatientId = paymentLineItem.PatientId;
             CPTCode = paymentLineItem.CPTCode;

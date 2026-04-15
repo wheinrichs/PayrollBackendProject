@@ -9,7 +9,9 @@ namespace PayrollBackendProject.Application.Mappings
     {
         public static PaymentLineItem DtoToDomain(PaymentCsvRow row, string rawData, Clinician? clinician, EHRUser appliedBy, ImportBatch importBatch, int rowNumber, string fingerprint)
         {
-            Enum.TryParse<AdjustmentCodeEnum>(row.Desc, out AdjustmentCodeEnum codeEnum);
+            if (!Enum.TryParse<PaymentAdjustmentCodeEnum>(row.Desc, out var codeEnum)) {
+                throw new ArgumentException($"Invalid adjustment code: {row.Desc}");
+            }
 
             return PaymentLineItem.GeneratePaymentLineItem(
                 rawData,

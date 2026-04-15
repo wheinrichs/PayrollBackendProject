@@ -32,6 +32,10 @@ namespace PayrollBackendProject.Domain.Entity
 
         public ImportBatch(string filename, string fingerprint)
         {
+            if(string.IsNullOrWhiteSpace(filename) || string.IsNullOrWhiteSpace(fingerprint))
+            {
+                throw new ArgumentException("The filename and fingerprint cannot be empty.");
+            }
             Id = Guid.NewGuid();
             Filename = filename;
             UploadTime = DateTime.UtcNow;
@@ -50,6 +54,19 @@ namespace PayrollBackendProject.Domain.Entity
 
         public void SetResults(int failedRows, int successfulRows, int totalRows, int unresolvedRows, List<String> errors)
         {
+            if(failedRows < 0 || failedRows > totalRows)
+            {
+                throw new ArgumentException("Failed rows cannot be negative or larger than total rows.");
+            }
+            if(successfulRows < 0 || successfulRows > totalRows)
+            {
+                throw new ArgumentException("Successful rows cannot be negative or larger than total rows.");
+            }
+            if(unresolvedRows < 0 || unresolvedRows > totalRows)
+            {
+                throw new ArgumentException("Unresolved rows cannot be negative or larger than total rows.");
+            }
+            
             FailedItems = failedRows;
             SuccessfulItems = successfulRows;
             TotalRows = totalRows;
@@ -72,6 +89,10 @@ namespace PayrollBackendProject.Domain.Entity
 
         public void AssignFilepath(string filepath)
         {
+            if(string.IsNullOrWhiteSpace(filepath))
+            {
+                throw new ArgumentException("Filepath cannot be null or empty.");
+            }
             Filepath = filepath;
         }
     }

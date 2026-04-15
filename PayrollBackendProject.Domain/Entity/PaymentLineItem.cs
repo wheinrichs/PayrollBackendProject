@@ -14,7 +14,7 @@ namespace PayrollBackendProject.Domain.Entity
 
         public decimal PaymentAmount { get; private set; }
         public decimal AdjustmentAmount { get; private set; }
-        public AdjustmentCodeEnum AdjustmentCode { get; private set; }
+        public PaymentAdjustmentCodeEnum PaymentAdjustmentCode { get; private set; }
 
         public DateTime DateOfService { get; private set; }
 
@@ -46,7 +46,7 @@ namespace PayrollBackendProject.Domain.Entity
             string rawClinicianName,
             decimal paymentAmount,
             decimal adjustmentAmount,
-            AdjustmentCodeEnum adjustmentCode,
+            PaymentAdjustmentCodeEnum adjustmentCode,
             DateTime dateOfService,
             string patientId,
             string cptCode,
@@ -61,6 +61,18 @@ namespace PayrollBackendProject.Domain.Entity
         {
             if (appliedBy == null) throw new ArgumentNullException(nameof(appliedBy));
             if (importBatch == null) throw new ArgumentNullException(nameof(importBatch));
+            if (string.IsNullOrWhiteSpace(rawData))
+            {
+                throw new ArgumentException("Raw data for the payment line item cannot be empty or null");
+            }
+            if (string.IsNullOrWhiteSpace(rawClinicianName))
+            {
+                throw new ArgumentException("Raw clinician name for the payment line item cannot be empty or null");
+            }
+            if (string.IsNullOrWhiteSpace(fingerprint))
+            {
+                throw new ArgumentException("Fingerprint for the payment line item cannot be empty or null");
+            }
 
             var item = new PaymentLineItem
             {
@@ -68,7 +80,7 @@ namespace PayrollBackendProject.Domain.Entity
                 RawData = rawData,
                 PaymentAmount = paymentAmount,
                 AdjustmentAmount = adjustmentAmount,
-                AdjustmentCode = adjustmentCode,
+                PaymentAdjustmentCode = adjustmentCode,
                 DateOfService = dateOfService,
                 PatientId = patientId,
                 CPTCode = cptCode,
