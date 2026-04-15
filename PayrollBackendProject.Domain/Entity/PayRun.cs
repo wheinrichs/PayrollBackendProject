@@ -31,6 +31,10 @@ namespace PayrollBackendProject.Domain.Entity
         // Factory method
         public static PayRun GeneratePayRun(DateTime startDate, DateTime endDate)
         {
+            if(endDate.Date > DateTime.UtcNow.Date)
+            {
+                throw new ArgumentException("Cannot set a pay run through a day in the future.");
+            }
             return new PayRun(startDate, endDate, ApprovalStateEnum.DRAFT);
         }
 

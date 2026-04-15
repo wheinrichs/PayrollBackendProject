@@ -33,7 +33,7 @@ namespace PayrollBackendProject.Domain.Entity
                     {
                         if (clinician == null)
                         {
-                            throw new ArgumentNullException("Cannot create a clinician user account without the clinician object.");
+                            throw new ArgumentNullException(nameof(clinician));;
                         }
                         UserAccount account = new UserAccount(email, password, firstName, lastName);
                         account.Role = role;

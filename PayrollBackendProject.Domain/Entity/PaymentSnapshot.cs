@@ -64,6 +64,10 @@ namespace PayrollBackendProject.Domain.Entity
 
         public static PaymentSnapshot CreateSnapshot(PaymentLineItem paymentLineItem, PayRun payRun)
         {
+            if(payRun == null || paymentLineItem == null)
+            {
+                throw new ArgumentException("Pay run and line item cannot be null when creating a snapshot");
+            }
             return new PaymentSnapshot(paymentLineItem, payRun);
         }
 

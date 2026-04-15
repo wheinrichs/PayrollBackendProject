@@ -25,6 +25,7 @@ namespace PayrollBackendProject.Domain.Entity
         {
             Id = Guid.NewGuid();
             Clinician = clinician;
+            ClinicianId = clinician.ID;
             PayRun = payRun;
             ApprovalState = status;
             ClinicianCostShare = costShare;
@@ -35,6 +36,10 @@ namespace PayrollBackendProject.Domain.Entity
         // Factory method
         public static PayStatement GenerateDraftPayStatement(Clinician clinician, PayRun payRun)
         {
+            if(clinician == null || payRun == null)
+            {
+                throw new ArgumentException("Cannot generate a statement for a null clinician or pay run");
+            }
             return new PayStatement(clinician, payRun, (decimal)clinician.CostShare, ApprovalStateEnum.DRAFT);
         }
 
@@ -81,6 +86,10 @@ namespace PayrollBackendProject.Domain.Entity
             if (ApprovalState != ApprovalStateEnum.DRAFT)
             {
                 throw new InvalidOperationException("Can only add line items in the statement draft state.");
+            }
+            if (paymentSnapshot.ClinicianId != ClinicianId)
+            {
+                throw new InvalidOperationException("Cannot add a payment line item where the clinician does not match the statement clinician ID");
             }
             this.LineItems.Add(paymentSnapshot);
         }
