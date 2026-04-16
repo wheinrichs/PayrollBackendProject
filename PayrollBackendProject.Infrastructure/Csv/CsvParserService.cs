@@ -179,15 +179,13 @@ namespace PayrollBackendProject.Application.Services
 
         private Clinician? FindClinician(string clinicianName, List<Clinician> clinicians)
         {
-            clinicianName = clinicianName.ToLower();
-            string[] splitName = clinicianName.Split([' ', ',']);
-            string firstName = splitName[0];
-            string lastName = splitName[1];
+            var parts = clinicianName
+                .ToLower()
+                .Split([' ', ','], StringSplitOptions.RemoveEmptyEntries);
 
-            Clinician? existingClinician = clinicians.Find(c => 
-                String.Equals(c.FirstName, firstName, StringComparison.OrdinalIgnoreCase) && 
-                String.Equals(c.LastName, lastName, StringComparison.OrdinalIgnoreCase));
-            return existingClinician;
+            return clinicians.Find(c =>
+                parts.Contains(c.FirstName.ToLower()) &&
+                parts.Contains(c.LastName.ToLower()));
         }
 
         private EHRUser FindAppliedByUser(string username, List<EHRUser> users) {

@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PayrollBackendProject.Domain\PayrollBackendProject.Domain.csproj" />
     <ProjectReference Include="..\PayrollBackendProject.Application\PayrollBackendProject.Application.csproj" />
+    <ProjectReference Include="..\PayrollBackendProject.Infrastructure\PayrollBackendProject.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
