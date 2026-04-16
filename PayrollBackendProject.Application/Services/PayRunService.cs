@@ -53,7 +53,7 @@ namespace PayrollBackendProject.Application.Services
 
             // Log pay run create
             string oldLogState = "";
-            string newLogState = JsonSerializer.Serialize(payRun);
+            string newLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
             AuditLog createdLog = new("Pay Run", payRun.Id, AuditLogActionEnum.CREATED, oldLogState, newLogState, userId.ToString());
             await _auditLogRepo.AddAuditLog(createdLog);
 
@@ -69,7 +69,7 @@ namespace PayrollBackendProject.Application.Services
 
             // Log pay run as processing
             oldLogState = newLogState;
-            newLogState = JsonSerializer.Serialize(payRun);
+            newLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
             createdLog = new("Pay Run", payRun.Id, AuditLogActionEnum.UPDATED, oldLogState, newLogState, userId.ToString());
             await _auditLogRepo.AddAuditLog(createdLog);
 
@@ -82,9 +82,9 @@ namespace PayrollBackendProject.Application.Services
                 PayStatement statement = _calculator.GeneratePayroll(clinicianGroup.ToList(), clinician, payRun);
 
                 // Log the created pay statement
-                string newStatementLogState = JsonSerializer.Serialize(statement);
+                string newStatementLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(statement, statement.PayRunId));
                 AuditLog createdStatementLog = new("Pay Statement", statement.Id, AuditLogActionEnum.CREATED, "", newStatementLogState, userId.ToString());
-                await _auditLogRepo.AddAuditLog(createdLog);
+                await _auditLogRepo.AddAuditLog(createdStatementLog);
 
                 // Add the statement to the pay run
                 payRun.Statements.Add(statement);
@@ -94,7 +94,7 @@ namespace PayrollBackendProject.Application.Services
 
             // Log the pay run as pending approval
             oldLogState = newLogState;
-            newLogState = JsonSerializer.Serialize(payRun);
+            newLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
             createdLog = new("Pay Run", payRun.Id, AuditLogActionEnum.UPDATED, oldLogState, newLogState, userId.ToString());
             await _auditLogRepo.AddAuditLog(createdLog);
 
@@ -125,12 +125,12 @@ namespace PayrollBackendProject.Application.Services
             {
                 throw new KeyNotFoundException("Approver does not exist as User in database.");
             }
-            string oldLogState = JsonSerializer.Serialize(payRun);
+            string oldLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
 
             payRun.Approve(approver);
 
             // Log the approval
-            string newLogState = JsonSerializer.Serialize(payRun);
+            string newLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
             AuditLog createdLog = new("Pay Run", payRun.Id, AuditLogActionEnum.APPROVED, oldLogState, newLogState, approverGuid.ToString());
             await _auditLogRepo.AddAuditLog(createdLog);
 
