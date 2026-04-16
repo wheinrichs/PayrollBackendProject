@@ -41,9 +41,9 @@ namespace PayrollBackendProject.Infrastructure.Repository
             return await _database.Clinicians.FindAsync(ID);
         }
 
-        public async Task<Clinician?> GetClinicianByLastName(string lastName)
+        public async Task<List<Clinician>> GetClinicianByLastName(string lastName)
         {
-            return await _database.Clinicians.FirstOrDefaultAsync(clinician => clinician.LastName == lastName);
+            return await _database.Clinicians.Where(clinician => clinician.LastName == lastName).ToListAsync();
         }
 
         public async Task<bool> RemoveClinicianByID(Guid ID)

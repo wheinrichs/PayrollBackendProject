@@ -6,7 +6,7 @@ namespace PayrollBackendProject.Application.Interfaces.Services
     {
         public Task<List<ClinicianResponseDTO>> GetClinicians();
         public Task<ClinicianResponseDTO> AddClinician(ClinicianRequestDTO requestedClinician);
-        public Task<ClinicianResponseDTO?> GetClinicianByLastName(string lastName);
+        public Task<List<ClinicianResponseDTO>> GetClinicianByLastName(string lastName);
         public Task<bool> RemoveClinicianByID(Guid ID);
         public Task<ClinicianResponseDTO?> GetClinicianByID(Guid id);
     }

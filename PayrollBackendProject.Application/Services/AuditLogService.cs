@@ -24,7 +24,8 @@ namespace PayrollBackendProject.Application.Services
 
         public async Task<List<AuditLogDTO>> GetLogsByEntityId(Guid entityId)
         {
-            throw new NotImplementedException();
+            List<AuditLog> domainList = await _auditLogRepository.GetAuditLogsByEntityId(entityId);
+            return domainList.Select(l => AuditLogMapper.DomainToDto(l)).ToList();
         }
     }
 }

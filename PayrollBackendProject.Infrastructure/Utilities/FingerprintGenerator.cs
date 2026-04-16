@@ -1,11 +1,12 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using PayrollBackendProject.Application.Interfaces.Utilities;
 
-namespace PayrollBackendProject.Application.Utilities
+namespace PayrollBackendProject.Infrastructure.Utilities
 {
-    public static class FingerprintGenerator
+    public class FingerprintGenerator : IFingerprintGenerator
     {
-        public static async Task<string> FileComputeSHA256Async(Stream stream)
+        public async Task<string> FileComputeSHA256Async(Stream stream)
         {
             using var sha256 = SHA256.Create();
 
@@ -14,7 +15,7 @@ namespace PayrollBackendProject.Application.Utilities
             return Convert.ToHexString(hash);
         }
 
-        public static async Task<string> LineItemComputeSHA256Async(string rawData, string batchId, string rowNumber)
+        public async Task<string> LineItemComputeSHA256Async(string rawData, string batchId, string rowNumber)
         {
             string hashInputString = rawData + batchId + rowNumber;
             using var sha256 = SHA256.Create();

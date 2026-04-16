@@ -27,7 +27,7 @@ namespace PayrollBackendProject.Application.Services
         public async Task<LoginResponseDTO?> Login(string username, string password)
         {
             UserAccount? retrievedUser = await _repo.GetByEmail(username);
-            if (retrievedUser == null || _passwordHasher.Verify(password, retrievedUser.PasswordHash))
+            if (retrievedUser == null || !_passwordHasher.Verify(password, retrievedUser.PasswordHash))
             {
                 return null;
             }

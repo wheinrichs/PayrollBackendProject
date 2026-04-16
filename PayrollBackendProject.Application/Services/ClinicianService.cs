@@ -38,10 +38,10 @@ namespace PayrollBackendProject.Application.Services
             return ClinicianMapper.DomainToDTO(clinicianDomain);
         }
 
-        public async Task<ClinicianResponseDTO?> GetClinicianByLastName(string lastName)
+        public async Task<List<ClinicianResponseDTO>> GetClinicianByLastName(string lastName)
         {
-            Clinician? returnClinician = await _clinicianRepository.GetClinicianByLastName(lastName);
-            return returnClinician == null ? null : ClinicianMapper.DomainToDTO(returnClinician);
+            List<Clinician> returnClinician = await _clinicianRepository.GetClinicianByLastName(lastName);
+            return returnClinician.Select(c => ClinicianMapper.DomainToDTO(c)).ToList();
         }
 
         public async Task<List<ClinicianResponseDTO>> GetClinicians()
@@ -60,8 +60,6 @@ namespace PayrollBackendProject.Application.Services
         {
             Clinician? returnClinician = await _clinicianRepository.GetClinicianByID(ID);
             return returnClinician == null ? null : ClinicianMapper.DomainToDTO(returnClinician);
-
-
         }
 
     }

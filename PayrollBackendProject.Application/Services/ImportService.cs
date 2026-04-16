@@ -1,8 +1,8 @@
 ﻿using PayrollBackendProject.Application.DTO;
 using PayrollBackendProject.Application.Interfaces.Repository;
 using PayrollBackendProject.Application.Interfaces.Services;
+using PayrollBackendProject.Application.Interfaces.Utilities;
 using PayrollBackendProject.Application.Mappings;
-using PayrollBackendProject.Application.Utilities;
 using PayrollBackendProject.Domain.Entity;
 using PayrollBackendProject.Domain.Enums;
 using System.Text.Json;
@@ -17,8 +17,17 @@ namespace PayrollBackendProject.Application.Services
         private readonly IEHRUserAccountRepository _ehrUserRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IAuditLogRepository _auditLogRepo;
+        private readonly IFingerprintGenerator _fingerprintGenerator;
+        private readonly IFileHandler _fileHandler;
 
-        public ImportService(IPaymentRepository repo, IClinicianRepository clinicianRepo, IUserAccountRepository userRepo, IEHRUserAccountRepository ehrRepo, IUnitOfWork unitOfWork, IAuditLogRepository auditLogRepo)
+        public ImportService(IPaymentRepository repo, 
+            IClinicianRepository clinicianRepo, 
+            IUserAccountRepository userRepo, 
+            IEHRUserAccountRepository ehrRepo, 
+            IUnitOfWork unitOfWork, 
+            IAuditLogRepository auditLogRepo, 
+            IFingerprintGenerator fingerprintGenerator,
+            IFileHandler fileHandler)
         {
             _repo = repo;
             _clinicianRepo = clinicianRepo;
@@ -26,13 +35,15 @@ namespace PayrollBackendProject.Application.Services
             _ehrUserRepo = ehrRepo;
             _unitOfWork = unitOfWork;
             _auditLogRepo = auditLogRepo;
+            _fingerprintGenerator = fingerprintGenerator;
+            _fileHandler = fileHandler;
         }
 
         public async Task<Guid> CreateBatchAndStoreFile(Stream fileStream, string filename, string uploadRoot, Guid userId)
         {
             // Create the batch - open the stream and create a fingerprint to check if its added already
             var inputStream = fileStream;
-            string batchFingerprint = await FingerprintGenerator.FileComputeSHA256Async(inputStream);
+            string batchFingerprint = await _fingerprintGenerator.FileComputeSHA256Async(inputStream);
             ImportBatch? batch = await _repo.GetImportBatch(batchFingerprint);
             if (batch != null)
             {
@@ -42,14 +53,10 @@ namespace PayrollBackendProject.Application.Services
             {
                 // Create a new batch
                 batch = new ImportBatch(filename, batchFingerprint);
-                // Store the file so it can be processed later
-                string filepath = CreateFilepath(batch.Id, uploadRoot);
-                batch.AssignFilepath(filepath);
 
-                using (var writeStream = new FileStream(filepath, FileMode.Create))
-                {
-                    await fileStream.CopyToAsync(writeStream);
-                }
+                string filepath = await _fileHandler.WriteFile(fileStream, filename, uploadRoot, batch.Id);
+
+                batch.AssignFilepath(filepath);
                 AuditLog log = new("Import Batch", batch.Id, AuditLogActionEnum.CREATED, "", JsonSerializer.Serialize(batch), userId.ToString());
                 await _repo.AddBatchItem(batch);
                 await _auditLogRepo.AddAuditLog(log);
@@ -74,23 +81,6 @@ namespace PayrollBackendProject.Application.Services
         {
             List<PaymentLineItem> domainList = await _repo.GetPaymentsWithUnresolvedClinician();
             return domainList.Select(p => PaymentLineItemMapper.DomainToDto(p)).ToList();
-        }
-
-        private string CreateFilepath(Guid batchId, string uploadRoot)
-        {
-            // Create a path for the uploads in a folder called uploads
-            // TODO LEGITIMIZE THIS WHEN YOU DEPLOY BUT FINE FOR LOCAL DEV
-            var uploadPath = "uploads";
-            var uploadsFolder = Path.Combine(uploadRoot, uploadPath);
-
-            // If the directory does not exist then create the directory
-            if(!Directory.Exists(uploadsFolder))
-            {
-                Directory.CreateDirectory(uploadsFolder);
-            }
-
-            var fullFilepath = Path.Combine(uploadsFolder, $"{batchId}");
-            return fullFilepath;
         }
     }
 }

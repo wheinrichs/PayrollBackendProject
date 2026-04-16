@@ -5,10 +5,11 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using PayrollBackendProject.Application.DTO;
 using PayrollBackendProject.Application.Interfaces.Repository;
 using PayrollBackendProject.Application.Interfaces.Services;
+using PayrollBackendProject.Application.Interfaces.Utilities;
 using PayrollBackendProject.Application.Mappings;
-using PayrollBackendProject.Application.Utilities;
 using PayrollBackendProject.Domain.Entity;
 using PayrollBackendProject.Domain.Enums;
+using PayrollBackendProject.Infrastructure.Utilities;
 using System.Globalization;
 
 namespace PayrollBackendProject.Application.Services
@@ -20,14 +21,21 @@ namespace PayrollBackendProject.Application.Services
         private readonly IUserAccountRepository _userRepo;
         private readonly IEHRUserAccountRepository _ehrUserRepo;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IFingerprintGenerator _fingerprintGenerator;
 
-        public CsvParserService(IPaymentRepository repo, IClinicianRepository clinicianRepo, IUserAccountRepository userRepo, IEHRUserAccountRepository ehrRepo, IUnitOfWork unitOfWork)
+        public CsvParserService(IPaymentRepository repo, 
+            IClinicianRepository clinicianRepo, 
+            IUserAccountRepository userRepo, 
+            IEHRUserAccountRepository ehrRepo, 
+            IUnitOfWork unitOfWork,
+            IFingerprintGenerator fingerprintGenerator)
         {
             _repo = repo;
             _clinicianRepo = clinicianRepo;
             _userRepo = userRepo;
             _ehrUserRepo = ehrRepo;
             _unitOfWork = unitOfWork;
+            _fingerprintGenerator = fingerprintGenerator;
         }
 
         public async Task<UploadResult?> Parse(ImportBatch batch)
@@ -88,7 +96,7 @@ namespace PayrollBackendProject.Application.Services
                     continue;
                 }
 
-                string lineItemFingerprint = await FingerprintGenerator.LineItemComputeSHA256Async(batch.Id.ToString(), rawData, rowNumber.ToString());
+                string lineItemFingerprint = await _fingerprintGenerator.LineItemComputeSHA256Async(batch.Id.ToString(), rawData, rowNumber.ToString());
 
                 try
                 {
