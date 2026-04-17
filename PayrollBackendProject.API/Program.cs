@@ -16,6 +16,7 @@ using PayrollBackendProject.Infrastructure.Auth;
 using PayrollBackendProject.Infrastructure.Data;
 using PayrollBackendProject.Infrastructure.Repository;
 using System.Text;
+using PayrollBackendProject.Infrastructure.Utilities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,7 +70,6 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 
-
 // Add service for UnitOfWork
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -82,6 +82,8 @@ builder.Services.AddScoped<IImportJob, ImportJob>();
 builder.Services.AddScoped<ICsvParserService, CsvParserService>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
+builder.Services.AddScoped<IFingerprintGenerator, FingerprintGenerator>();
+builder.Services.AddScoped<IFileHandler, FileHandler>();
 
 // Add services for PayRun and PayStatements
 builder.Services.AddScoped<IPayRunRepository, PayRunRepository>();

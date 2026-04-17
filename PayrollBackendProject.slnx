@@ -8,5 +8,4 @@
   <Project Path="PayrollBackendProject.Infrastructure/PayrollBackendProject.Infrastructure.csproj" />
   <Project Path="PayrollBackendProject.IntegrationTests/PayrollBackendProject.IntegrationTests.csproj" />
   <Project Path="PayrollBackendProject.UnitTests/PayrollBackendProject.UnitTests.csproj" />
-  <Project Path="PayrollBackendProject/PayrollBackendProject.csproj" />
 </Solution>
