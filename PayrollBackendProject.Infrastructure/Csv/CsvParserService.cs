@@ -78,6 +78,7 @@ namespace PayrollBackendProject.Application.Services
 
             batch.UpdateStatus(ImportStatusEnum.PROCESSING);
 
+            var fileInfo = new FileInfo(batch.Filepath);
             while (csv.Read())
             {
                 // Generate the object and the fingerprint from the csv row

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using PayrollBackendProject.Application.Interfaces.Services;
 
 namespace PayrollBackendProject.IntegrationTests;
 
@@ -13,11 +14,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        
+        builder.UseEnvironment("Testing");
         builder.ConfigureServices(services =>
         {
             // Remove hangfire from the integration tests so tests run quickly 
             services.RemoveAll<IHostedService>();
+            // Replace this service with a custom one so postgres isn't called on enqueue
+            services.AddScoped<IBackgroundJobService, TestBackgroundJobService>();
 
             // Find the existing ClinicianDbContext that is defined in program and get a reference to it
             var descriptor = services.SingleOrDefault(

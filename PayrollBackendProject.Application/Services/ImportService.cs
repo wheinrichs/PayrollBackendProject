@@ -44,6 +44,7 @@ namespace PayrollBackendProject.Application.Services
             // Create the batch - open the stream and create a fingerprint to check if its added already
             var inputStream = fileStream;
             string batchFingerprint = await _fingerprintGenerator.FileComputeSHA256Async(inputStream);
+            inputStream.Position = 0;
             ImportBatch? batch = await _repo.GetImportBatch(batchFingerprint);
             if (batch != null)
             {

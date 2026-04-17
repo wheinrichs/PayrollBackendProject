@@ -6,7 +6,7 @@ using PayrollBackendProject.Application.Interfaces.Services;
 
 namespace PayrollBackendProject.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "ADMIN, BACKEND")]
     [Route("api/[controller]")]
     [ApiController]
     public class ImportController : ControllerBase

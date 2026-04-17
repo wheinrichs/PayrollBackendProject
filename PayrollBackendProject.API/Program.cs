@@ -55,11 +55,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     );
 builder.Services.AddAuthorization();
 
-// Add database information for Hangfire
-builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+// Don't configure hangfire in testing environemnt
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    // Add database information for Hangfire
+    builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
-// Setup the hangfire background worker
-builder.Services.AddHangfireServer();
+    // Setup the hangfire background worker
+    builder.Services.AddHangfireServer();
+}
 
 // Add service for clinician services
 builder.Services.AddScoped<IClinicianService, ClinicianService>();
@@ -163,11 +167,13 @@ if (app.Environment.IsDevelopment())
 
 // Setup the hangfire dashboard 
 // TODO FIX THIS AUTH
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    Authorization = new[] {new AllowAllDashboardAuthorizationFilter()}
-});
-
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] {new AllowAllDashboardAuthorizationFilter()}
+    });
+}
 
 // Specify the endpoints for the health checks
 app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
@@ -183,7 +189,10 @@ app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.Health
     Predicate = check => check.Tags.Contains("Readiness check")
 });
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 

@@ -9,8 +9,16 @@ namespace PayrollBackendProject.Application.Mappings
     {
         public static PaymentLineItem DtoToDomain(PaymentCsvRow row, string rawData, Clinician? clinician, EHRUser appliedBy, ImportBatch importBatch, int rowNumber, string fingerprint)
         {
-            if (!Enum.TryParse<PaymentAdjustmentCodeEnum>(row.Desc, out var codeEnum)) {
-                throw new ArgumentException($"Invalid adjustment code: {row.Desc}");
+            // TODO MAKE THIS MORE ROBUST - WHEN CODE ISN'T FOUND SHOULDN'T CRASH, SHOULD REPORT ERROR
+            PaymentAdjustmentCodeEnum codeEnum;
+            var acctNo = row.AcctNo?.Trim();
+            if (int.TryParse(acctNo, out int code) && Enum.IsDefined(typeof(PaymentAdjustmentCodeEnum), code))
+            {
+                codeEnum = (PaymentAdjustmentCodeEnum)code;
+            }
+            else
+            {
+                throw new ArgumentException($"Invalid adjustment code: {row.AcctNo}");
             }
 
             return PaymentLineItem.GeneratePaymentLineItem(
