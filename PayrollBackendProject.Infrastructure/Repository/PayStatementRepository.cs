@@ -26,7 +26,7 @@ namespace PayrollBackendProject.Infrastructure.Repository
 
         public async Task<PayStatement?> GetPayStatement(Guid id)
         {
-            return await _database.PayStatements.Include(p => p.LineItems).FirstOrDefaultAsync(p => p.Id == id);
+            return await _database.PayStatements.Include(p => p.LineItems).Include(s => s.Clinician).FirstOrDefaultAsync(p => p.Id == id);
         }
 
         public async Task<List<PayStatement>> GetPayStatementsForPayRun(Guid id)

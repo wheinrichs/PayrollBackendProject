@@ -7,11 +7,16 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using PayrollBackendProject.Application.Interfaces.Services;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace PayrollBackendProject.IntegrationTests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private static readonly InMemoryDatabaseRoot _dbRoot = new();
+    private readonly string _dbName = Guid.NewGuid().ToString();
+
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -33,7 +38,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Add a replacement context for testing
             services.AddDbContext<ClinicianDbContext>(options =>
             {
-                options.UseInMemoryDatabase("TestDb");
+                options.UseInMemoryDatabase(_dbName, _dbRoot);
             });
         });
     }

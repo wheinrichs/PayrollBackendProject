@@ -19,7 +19,7 @@ namespace PayrollBackendProject.API.Controllers
             _service = service;
         }
 
-        [HttpGet("/statements")]
+        [HttpGet("statements")]
         public async Task<ActionResult<List<PayStatementDTO>>> GetStatementsForClinician()
         {
             Guid currentClinician = TokenParser.RetrieveGuidFromToken(User);

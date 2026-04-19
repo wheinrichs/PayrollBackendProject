@@ -40,10 +40,10 @@ namespace PayrollBackendProject.Infrastructure.Repository
             return returnedLineItem;
         }
 
-        public Task<List<PaymentLineItem>> GetPaymentBetweenDates(DateTime start, DateTime end)
+        public async Task<List<PaymentLineItem>> GetPaymentBetweenDates(DateTime start, DateTime end)
         {
             // TODO MAKE THIS TAKE THE WHOLE DAY AND NOT THE SPECIFIC TIMESTAMP
-            return _database.PaymentLineItems.Where(p => p.AppliedDate <= end && p.AppliedDate >= start).ToListAsync();
+            return await _database.PaymentLineItems.Where(p => p.AppliedDate <= end && p.AppliedDate >= start).ToListAsync();
         }
 
         public Task<List<PaymentLineItem>> GetPaymentsFromBatch(Guid batchId)

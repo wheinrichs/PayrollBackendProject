@@ -149,12 +149,12 @@ namespace PayrollBackendProject.Application.Services
             {
                 throw new KeyNotFoundException("Approver does not exist as User in database.");
             }
-            string oldLogState = JsonSerializer.Serialize(payStatement);
+            string oldLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(payStatement, payStatement.PayRunId));
 
             payStatement.Approve(approver);
 
             // Log the approved pay statement
-            string newLogState = JsonSerializer.Serialize(payStatement);
+            string newLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(payStatement, payStatement.PayRunId));
             AuditLog createdLog = new("Pay Statement", payStatement.Id, AuditLogActionEnum.APPROVED, oldLogState, newLogState, approverGuid.ToString());
             await _auditLogRepo.AddAuditLog(createdLog);
 

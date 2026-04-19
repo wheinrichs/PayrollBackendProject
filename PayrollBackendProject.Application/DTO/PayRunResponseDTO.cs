@@ -12,12 +12,12 @@ namespace PayrollBackendProject.Application.DTO
         public Decimal TotalAdjudicated { get; private set; }
         public Decimal StatementTotals { get; private set; }
         public PayRunStatusEnum GenerationStatus { get; private set; }
-        public String ApprovalStatus { get; private set; }
+        public ApprovalStateEnum ApprovalStatus { get; private set; }
         public Guid? ApprovedRejectedBy { get; private set; }
         public DateTime? ApprovedRejectedOn { get; private set; }
 
 
-        public PayRunResponseDTO (Guid id, DateTime startDate, DateTime endDate, decimal totalApplied, decimal totalAdjudicated, decimal statementTotals, PayRunStatusEnum generationStatus, ApprovalStateEnum approvalState, Guid? approvedRejectedBy, DateTime? approvedRejectedOn)
+        public PayRunResponseDTO (Guid id, DateTime startDate, DateTime endDate, decimal totalApplied, decimal totalAdjudicated, decimal statementTotals, PayRunStatusEnum generationStatus, ApprovalStateEnum approvalStatus, Guid? approvedRejectedBy, DateTime? approvedRejectedOn)
         {
             Id = id;
             StartDate = startDate;
@@ -26,7 +26,7 @@ namespace PayrollBackendProject.Application.DTO
             TotalAdjudicated = totalAdjudicated;
             StatementTotals = statementTotals;
             GenerationStatus = generationStatus;
-            ApprovalStatus = approvalState.ToString();
+            ApprovalStatus = approvalStatus;
             ApprovedRejectedBy = approvedRejectedBy;
             ApprovedRejectedOn = approvedRejectedOn;
         }

@@ -49,7 +49,6 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         response.EnsureSuccessStatusCode();
         // The response type needs to be deconstructed back into your LoginResponseDTO if you want to inspect it
         LoginResponseDTO? result = await response.Content.ReadFromJsonAsync<LoginResponseDTO>();
-
         Assert.NotNull(result);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -61,6 +60,11 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         // Check that the user can logon now and retrieves a valid token
         LoginRequestDTO loginRequest = new("newuser@test.com", "Password123!");
         HttpResponseMessage loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
+
+        var rawLogin = await loginResponse.Content.ReadAsStringAsync();
+
+        Assert.True(loginResponse.IsSuccessStatusCode, $"Login failed: {rawLogin}");
+
         LoginResponseDTO? token = await loginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
 
         // Check the db directly for the test you ran
