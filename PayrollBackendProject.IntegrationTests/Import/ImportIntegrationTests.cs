@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Mvc;
 using PayrollBackendProject.Application.DTO;
 using Microsoft.AspNetCore.Http;
 using PayrollBackendProject.Domain.Enums;
+using PayrollBackendProject.Domain.Entity;
+using Microsoft.EntityFrameworkCore;
 
 namespace PayrollBackendProject.IntegrationTests;
 
@@ -55,9 +57,9 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         return content;
     }
 
-    private async Task<LoginResponseDTO?> LoginForTestAsAdmin()
+    private async Task<LoginResponseDTO?> SignupForTestAsAdmin()
     {
-        var loginRequest = new SignUpRequestDTO("newuser@test.com", "Password123!", "A", "B", "admin");
+        var loginRequest = new SignUpRequestDTO($"new_{Guid.NewGuid()}@test.com", "Password123!", "A", "B", "admin");
 
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/signup", loginRequest);
         loginResponse.EnsureSuccessStatusCode();
@@ -66,9 +68,9 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         return loginResult;
     }
 
-    private async Task<LoginResponseDTO?> LoginForTestAsClinician()
-    {
-        var loginRequest = new SignUpRequestDTO("clincian@test.com", "Password123!", "A", "B", "clinician");
+    private async Task<LoginResponseDTO?> SignupForTestAsClinician()
+    {   
+        var loginRequest = new SignUpRequestDTO($"new_{Guid.NewGuid()}@test.com", "Password123!", "A", "B", "clinician");
 
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/signup", loginRequest);
         loginResponse.EnsureSuccessStatusCode();
@@ -84,9 +86,18 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task Upload_CreatesBatch_AndProcessesCorrectly()
     {
         // Login so the requests can go through       
-        var loginResult = await LoginForTestAsAdmin();
+        var loginResult = await SignupForTestAsAdmin();
         // Attach the token to the requests with this client
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token); 
+        
+        // Create scope to access services for the db and for the import job (since not using hangfire)
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+        var job = scope.ServiceProvider.GetRequiredService<IImportJob>();
+        // Clear any existing db items out
+        db.PaymentLineItems.RemoveRange(db.PaymentLineItems);
+        db.ImportBatches.RemoveRange(db.ImportBatches);
+        await db.SaveChangesAsync();
 
         // Create the file for the request
         var content = createCsvForRequest();
@@ -99,11 +110,6 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var batchId = await response.Content.ReadFromJsonAsync<Guid>();
 
         Assert.NotEqual(Guid.Empty, batchId);
-
-        // Create scope to access services for the db and for the import job (since not using hangfire)
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
-        var job = scope.ServiceProvider.GetRequiredService<IImportJob>();
 
         // Assert - Batch exists
         var batch = await db.ImportBatches.FindAsync(batchId);
@@ -145,7 +151,7 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task Upload_CreatesBatch_FailsWithoutAdminToken()
     {
         // Login so the requests can go through       
-        var loginResult = await LoginForTestAsClinician();
+        var loginResult = await SignupForTestAsClinician();
         // Attach the token to the requests with this client
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token); 
 
@@ -160,8 +166,87 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     /*
     Same file being uploaded twice does not duplicate entries and returns the original batch ID
     */
+    [Fact]
+    public async Task Upload_MutipleOfSameFile_ReturnsSameBatch()
+    {
+        var loginResult = await SignupForTestAsAdmin();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token);
+
+        var content = createCsvForRequest();
+
+        // Send the file for the first time and wait for a response
+        var response = await _client.PostAsync("/api/import/upload", content);
+        var response2 = await _client.PostAsync("/api/import/upload", content);
+
+        // Assert that both batches went through and returned the same batch id
+        Guid responseGuid = await response.Content.ReadFromJsonAsync<Guid>();
+        Guid responseGuid2 = await response2.Content.ReadFromJsonAsync<Guid>();
+        response.EnsureSuccessStatusCode();
+        response2.EnsureSuccessStatusCode();
+        Assert.Equal(responseGuid, responseGuid2);
+
+    }
 
     /*
     Getting unresolved clinician payments returns the correct list. Resolving clinicians then removes from this list
     */
+    [Fact]
+    public async Task Resolve_ResolvingMissingClinicians_RemovesFromList()
+    {
+        var loginResult = await SignupForTestAsAdmin();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token);
+        var content = createCsvForRequest();
+
+        // Retrieve the Db and the job processor
+        var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+        var jobProcessor = scope.ServiceProvider.GetRequiredService<IImportJob>();
+
+        // Clear any existing payments or batches out of the database
+        db.PaymentLineItems.RemoveRange(db.PaymentLineItems);
+        db.ImportBatches.RemoveRange(db.ImportBatches);
+        await db.SaveChangesAsync();
+
+        // Send the file and wait for the response, ensure the response is successful
+        var response = await _client.PostAsync("/api/import/upload", content);
+        response.EnsureSuccessStatusCode();
+
+        // Extract the Guid from the response
+        var batchId = await response.Content.ReadFromJsonAsync<Guid>();
+
+        Assert.NotEqual(Guid.Empty, batchId);
+
+        // Assert - Batch exists
+        var batch = await db.ImportBatches.FindAsync(batchId);
+        Assert.NotNull(batch);
+        Assert.Equal(ImportStatusEnum.PENDING, batch!.ImportStatus);
+
+        // Act - Manually process batch (since Hangfire is disabled)
+        await jobProcessor.ProcessBatch(batchId);
+
+        // Validate that there are 4 unresolved clinician items from the first test that was run as apart of this file
+        List<PaymentLineItem> unresolvedPayments = await db.PaymentLineItems.Where(p => p.ClinicianId == null).ToListAsync();
+        Assert.Equal(4, unresolvedPayments.Count);
+
+        // Assert that retrieving the unresolved payments from the endpoing gets the same 4 payments
+        var unresolvedPaymentsEndpointResult = await _client.GetAsync("/api/import/UnresolvedClinicianPayments");
+        var unresolvedPaymentsEndpoint = await unresolvedPaymentsEndpointResult.Content.ReadFromJsonAsync<List<PaymentLineItemDTO>>();
+        Assert.Equal(4, unresolvedPaymentsEndpoint!.Count);
+        foreach(PaymentLineItem payment in unresolvedPayments)
+        {
+            Assert.Contains(unresolvedPaymentsEndpoint, p => p.Id == payment.Id);
+        }
+
+        // Add in two clinicians, resolve clinicians, and rerun the test to ensure the 2 payment line items are resolved
+        response = await _client.PostAsJsonAsync("/api/auth/signup", new SignUpRequestDTO("jsmith@example.com", "fakepassword", "Joe", "Smith", "clinician"));
+        response.EnsureSuccessStatusCode();
+        response = await _client.PostAsJsonAsync("/api/auth/signup", new SignUpRequestDTO("jadams@example.com", "fakepassword", "Jane", "Adams", "clinician"));
+        response.EnsureSuccessStatusCode();
+        response = await _client.PostAsync("/api/import/ResolveCliniciansForPayments", null);
+        response.EnsureSuccessStatusCode();
+
+        unresolvedPaymentsEndpointResult = await _client.GetAsync("/api/import/UnresolvedClinicianPayments");
+        unresolvedPaymentsEndpoint = await unresolvedPaymentsEndpointResult.Content.ReadFromJsonAsync<List<PaymentLineItemDTO>>();
+        Assert.Equal(2, unresolvedPaymentsEndpoint!.Count);
+    }
 }
