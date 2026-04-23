@@ -189,7 +189,7 @@ app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.Health
     Predicate = check => check.Tags.Contains("Readiness check")
 });
 
-if (!app.Environment.IsEnvironment("Testing"))
+if (!app.Environment.IsEnvironment("Testing") && !app.Environment.IsEnvironment("Production"))
 {
     app.UseHttpsRedirection();
 }
@@ -199,6 +199,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Explicitly define the port so it works on render
+// If the port is not injected accept any host on port 8080
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+app.Urls.Add($"http://*:{port}");
 
 app.Run();
 
