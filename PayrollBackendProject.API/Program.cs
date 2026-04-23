@@ -205,6 +205,13 @@ app.MapControllers();
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 app.Urls.Add($"http://*:{port}");
 
+// Apply migrations to database by default
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+    db.Database.Migrate();
+}
+
 app.Run();
 
 public partial class Program { }
