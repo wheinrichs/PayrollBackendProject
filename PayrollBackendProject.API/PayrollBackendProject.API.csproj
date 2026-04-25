@@ -23,4 +23,9 @@
     <ProjectReference Include="..\PayrollBackendProject.Infrastructure\PayrollBackendProject.Infrastructure.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+
 </Project>

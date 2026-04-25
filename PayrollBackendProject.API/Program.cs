@@ -136,6 +136,23 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT"
     };
 
+    // Include XML docs from all the different projects
+    var basePath = AppContext.BaseDirectory;
+
+    var xmlFiles = new[]
+    {
+        "PayrollBackendProject.API.xml"
+    };
+
+    foreach (var file in xmlFiles)
+    {
+        var path = Path.Combine(basePath, file);
+        if (File.Exists(path))
+        {
+            options.IncludeXmlComments(path);
+        }
+    }
+
     options.AddSecurityDefinition("Bearer", securityScheme);
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -155,8 +172,6 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
-
-
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
