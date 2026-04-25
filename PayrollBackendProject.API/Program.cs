@@ -141,7 +141,8 @@ builder.Services.AddSwaggerGen(options =>
 
     var xmlFiles = new[]
     {
-        "PayrollBackendProject.API.xml"
+        "PayrollBackendProject.API.xml",
+        "PayrollBackendProject.Application.xml"
     };
 
     foreach (var file in xmlFiles)
