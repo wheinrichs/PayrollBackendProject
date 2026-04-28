@@ -48,17 +48,17 @@ namespace PayrollBackendProject.API.Controllers
             return Ok(user);
         }
 
-    /// <summary>
-    /// Registers a new user account with the specified role.
-    /// </summary>
-    /// <param name="newUserAccountDTO">
-    /// Contains email, password, name, and role information.
-    /// </param>
-    /// <returns>
-    /// A <see cref="LoginResponseDTO"/> for the newly created user.
-    /// </returns>
-    /// <response code="200">User successfully created.</response>
-    /// <response code="400">Invalid role or signup failure.</response>
+        /// <summary>
+        /// Registers a new user account with the specified role.
+        /// </summary>
+        /// <param name="newUserAccountDTO">
+        /// Contains email, password, name, and role information.
+        /// </param>
+        /// <returns>
+        /// A <see cref="LoginResponseDTO"/> for the newly created user.
+        /// </returns>
+        /// <response code="200">User successfully created.</response>
+        /// <response code="400">Invalid role or signup failure.</response>
         [HttpPost("signup")]
         public async Task<ActionResult<LoginResponseDTO?>> Signup(SignUpRequestDTO newUserAccountDTO)
         {
