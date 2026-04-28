@@ -35,7 +35,7 @@ namespace PayrollBackendProject.API.Controllers
         /// <returns>
         /// A <see cref="LoginResponseDTO"/> object that contains the token and user information. 
         /// </returns>
-        /// <response code="200"> Successfully logged in the user </response>
+        /// <response code="200"> Successfully logged in the user. </response>
         /// <response code="401"> Failed log in - wrong username or password.</response>
         [HttpPost("login")]
         public async Task<ActionResult<LoginResponseDTO?>> Login(LoginRequestDTO userAccountDTO)
