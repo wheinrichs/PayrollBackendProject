@@ -184,8 +184,8 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         var payRun = await db.PayRuns.Include(p => p.Statements).FirstAsync(p => p.Id == payRunId);
         var statementId = payRun.Statements.First().Id;
 
-        await _client.PostAsync($"/approveRun/{payRunId}", null);
-        await _client.PostAsync($"/approveStatement/{statementId}", null);
+        await _client.PostAsync($"/approveRun/{payRunId}/approve", null);
+        await _client.PostAsync($"/approveStatement/{statementId}/approve", null);
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -327,8 +327,8 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         }
 
         // Approve the statement for this clinician
-        await _client.PostAsync($"/approveRun/{payRunId}", null);
-        await _client.PostAsync($"/approveStatement/{clinicianStatementId}", null);
+        await _client.PostAsync($"/approveRun/{payRunId}/approve", null);
+        await _client.PostAsync($"/approveStatement/{clinicianStatementId}/approve", null);
 
         // Sign in as the clinician
         _client.DefaultRequestHeaders.Authorization =
