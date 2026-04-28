@@ -174,10 +174,12 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Always expose JSON (for CI / ReDoc)
+app.UseSwagger();
+
+// Only expose UI in development
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
     app.UseSwaggerUI();
 }
 
