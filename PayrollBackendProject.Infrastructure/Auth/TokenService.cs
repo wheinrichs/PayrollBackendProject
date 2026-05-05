@@ -33,7 +33,8 @@ namespace PayrollBackendProject.Application.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim("status", user.UserStatus.ToString())
             };
 
             // Generate symmetric security key from bytes of key and credentials

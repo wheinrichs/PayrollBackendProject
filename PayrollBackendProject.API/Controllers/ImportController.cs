@@ -14,7 +14,7 @@ namespace PayrollBackendProject.API.Controllers
     /// and resolution of clinician-related payment data.
     /// Access is restricted to users with ADMIN or BACKEND roles.
     /// </remarks>
-    [Authorize(Roles = "ADMIN, BACKEND")]
+    [Authorize(Policy = "ApprovedBackendOnly, ApprovedAdminOnly")]
     [Route("api/[controller]")]
     [ApiController]
     public class ImportController : ControllerBase

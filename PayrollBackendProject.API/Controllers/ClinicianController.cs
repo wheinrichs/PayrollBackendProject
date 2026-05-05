@@ -12,7 +12,7 @@ namespace PayrollBackendProject.API.Controllers
     /// <remarks>
     /// All endpoints require authentication. Deletion operations require an Admin role.
     /// </remarks>
-    [Authorize]
+    [Authorize(Policy = "ApprovedBackendOnly, ApprovedAdminOnly")]
     [Route("api/[controller]")]
     [ApiController]
     public class CliniciansController : ControllerBase

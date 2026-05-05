@@ -20,7 +20,7 @@ namespace PayrollBackendProject.API.Controllers
     /// </remarks>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize (Roles = "ADMIN, BACKEND")]
+    [Authorize(Policy = "ApprovedBackendOnly, ApprovedAdminOnly")]
     public class PayRunController : ControllerBase
     {
         private readonly IPayRunService _service;

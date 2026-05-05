@@ -14,6 +14,7 @@ namespace PayrollBackendProject.Domain.Entity
         public Guid? ClinicianId { get; set; } = null;
         public Clinician? Clinician { get; set; }
         public RoleEnum Role { get; set; }
+        public UserAccountApprovalStateEnum UserStatus { get; private set; }
 
         public UserAccount() { }
         public UserAccount(string email, string password, string firstName, string lastName)
@@ -23,9 +24,10 @@ namespace PayrollBackendProject.Domain.Entity
             PasswordHash = password;
             FirstName = firstName;
             LastName = lastName;
+            UserStatus = UserAccountApprovalStateEnum.PENDING_APPROVAL;
         }
 
-        public static UserAccount GenerateUserAccount(string email, string password, string  firstName, string lastName, RoleEnum role, Clinician? clinician)
+        public static UserAccount GenerateUserAccount(string email, string password, string firstName, string lastName, RoleEnum role, Clinician? clinician)
         {
             switch(role)
             { 
@@ -51,5 +53,9 @@ namespace PayrollBackendProject.Domain.Entity
             }
         }
 
+        public void UpdateUserAccountStatus(UserAccountApprovalStateEnum state)
+        {
+            UserStatus = state;
+        }
     }
 }

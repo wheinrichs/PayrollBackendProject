@@ -16,7 +16,7 @@ namespace PayrollBackendProject.API.Controllers
     /// </remarks>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = "ApprovedClinicianOnly")]
     public class MeController : ControllerBase
     {
         private readonly IPayRunService _service;

@@ -17,6 +17,7 @@ using PayrollBackendProject.Infrastructure.Data;
 using PayrollBackendProject.Infrastructure.Repository;
 using System.Text;
 using PayrollBackendProject.Infrastructure.Utilities;
+using PayrollBackendProject.Domain.Enums;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,7 +54,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     }
     );
-builder.Services.AddAuthorization();
+
+// Enable authorization and dd a custom policy to restrict endpoints to approved clinicians
+builder.Services.AddAuthorization( options =>
+{
+    options.AddPolicy("ApprovedClinicianOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("Clinician");
+        policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
+    });
+    options.AddPolicy("ApprovedBackendOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("Backend");
+        policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
+    });
+    options.AddPolicy("ApprovedAdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("Admin");
+        policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
+    });
+});
 
 // Don't configure hangfire in testing environemnt
 if (!builder.Environment.IsEnvironment("Testing"))

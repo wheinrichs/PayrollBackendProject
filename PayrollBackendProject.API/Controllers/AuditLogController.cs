@@ -15,7 +15,7 @@ namespace PayrollBackendProject.API.Controllers
     /// </remarks>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = "ApprovedAdminOnly")]
     public class AuditLogController : ControllerBase
     {
         private readonly IAuditLogService _service;
