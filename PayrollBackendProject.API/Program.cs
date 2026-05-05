@@ -61,19 +61,19 @@ builder.Services.AddAuthorization( options =>
     options.AddPolicy("ApprovedClinicianOnly", policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Clinician");
+        policy.RequireRole(RoleEnum.CLINICIAN.ToString());
         policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
     });
     options.AddPolicy("ApprovedBackendOnly", policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Backend");
+        policy.RequireRole(RoleEnum.BACKEND.ToString(), RoleEnum.ADMIN.ToString());
         policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
     });
     options.AddPolicy("ApprovedAdminOnly", policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole("Admin");
+        policy.RequireRole(RoleEnum.ADMIN.ToString());
         policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
     });
 });

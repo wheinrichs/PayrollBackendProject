@@ -6,6 +6,6 @@ namespace PayrollBackendProject.Application.Interfaces.Services
     public interface IAuthService
     {
         public Task<LoginResponseDTO?> Login(string username, string password);
-        public Task<LoginResponseDTO?> SignUp(SignUpRequestDTO newUser, RoleEnum role);
+        public Task<SignUpResponseDTO?> SignUp(SignUpRequestDTO newUser, RoleEnum role);
     }
 }

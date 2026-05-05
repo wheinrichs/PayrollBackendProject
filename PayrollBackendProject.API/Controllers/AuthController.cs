@@ -60,14 +60,14 @@ namespace PayrollBackendProject.API.Controllers
         /// <response code="200">User successfully created.</response>
         /// <response code="400">Invalid role or signup failure.</response>
         [HttpPost("signup")]
-        public async Task<ActionResult<LoginResponseDTO?>> Signup(SignUpRequestDTO newUserAccountDTO)
+        public async Task<ActionResult<SignUpResponseDTO?>> Signup(SignUpRequestDTO newUserAccountDTO)
         {
             if (!Enum.TryParse<RoleEnum>(newUserAccountDTO.Role, ignoreCase: true, out var role))
             {
                 return BadRequest($"Invalid role: {newUserAccountDTO.Role}");
             }
 
-            LoginResponseDTO? newUser = await _service.SignUp(newUserAccountDTO, role);
+            SignUpResponseDTO? newUser = await _service.SignUp(newUserAccountDTO, role);
             if (newUser == null)
             {
                 return BadRequest("Unable to create new user.");

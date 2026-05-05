@@ -31,13 +31,16 @@ namespace PayrollBackendProject.Application.Services
             {
                 return null;
             }
+            if (retrievedUser.UserStatus != UserAccountApprovalStateEnum.APPROVED)
+            {
+                return null;
+            }
             var token = _tokenService.GenerateToken(retrievedUser);
             LoginResponseDTO mappedUser = UserAccountMapper.DomainToDto(retrievedUser, token);
             return mappedUser;
         }
 
-        // TODO add in approval so not everyone can just sign up as an admin
-        public async Task<LoginResponseDTO?> SignUp(SignUpRequestDTO newUser, RoleEnum role)
+        public async Task<SignUpResponseDTO?> SignUp(SignUpRequestDTO newUser, RoleEnum role)
         {
             // Check if an existing user is already associated with this email
             var existingUser = await _repo.GetByEmail(newUser.Email);
@@ -75,9 +78,7 @@ namespace PayrollBackendProject.Application.Services
             domainNewUser.PasswordHash = _passwordHasher.Hash(newUser.Password);
             await _repo.SignUp(domainNewUser);
             await _unitOfWork.SaveChangesAsync();
-            var token = _tokenService.GenerateToken(domainNewUser);
-            LoginResponseDTO mappedUser = UserAccountMapper.DomainToDto(domainNewUser, token);
-            return mappedUser;
+            return new SignUpResponseDTO(domainNewUser.Email, domainNewUser.UserStatus.ToString(), "Account created and pending admin approval.");
         }
     }
 }
