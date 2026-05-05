@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using PayrollBackendProject.Application.DTO;
 using PayrollBackendProject.Application.Interfaces.Services;
 using PayrollBackendProject.Domain.Enums;
@@ -73,6 +74,29 @@ namespace PayrollBackendProject.API.Controllers
                 return BadRequest("Unable to create new user.");
             }
             return Ok(newUser);
+        }
+
+        [Authorize (Policy = "ApprovedBackendOnly")]
+        [HttpGet("pending-users")]
+        public async Task<ActionResult<List<UserAccountDTO>>> GetPendingUsers()
+        {
+            return Ok(await _service.GetPendingUserAccounts());
+        }
+
+        [Authorize (Policy = "ApprovedAdminOnly")]
+        [HttpPost("/users/{id}/approve")]
+        public async Task<ActionResult> ApproveUser(Guid id)
+        {
+            await _service.ApprovePendingUserAccount(id);
+            return NoContent();
+        }
+
+        [Authorize(Policy = "ApprovedAdminOnly")]
+        [HttpPost("/users/{id}/disable")]
+        public async Task<ActionResult> DisableUser(Guid id)
+        {
+            await _service.DisableUserAccount(id);
+            return NoContent();
         }
     }
 }

@@ -59,10 +59,13 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task<LoginResponseDTO?> SignupForTestAsAdmin()
     {
-        var loginRequest = new SignUpRequestDTO($"new_{Guid.NewGuid()}@test.com", "Password123!", "A", "B", "admin");
+        var signUpRequest = new SignUpRequestDTO($"new_{Guid.NewGuid()}@test.com", "Password123!", "A", "B", "admin");
 
-        var loginResponse = await _client.PostAsJsonAsync("/api/auth/signup", loginRequest);
-        loginResponse.EnsureSuccessStatusCode();
+        var signUpResponse = await _client.PostAsJsonAsync("/api/auth/signup", signUpRequest);
+        signUpResponse.EnsureSuccessStatusCode();
+
+        var loginRequest = new LoginRequestDTO(signUpRequest.Email, signUpRequest.Password);
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
 
         var loginResult = await loginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
         return loginResult;

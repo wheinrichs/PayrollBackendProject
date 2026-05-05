@@ -7,5 +7,6 @@ namespace PayrollBackendProject.Application.Interfaces.Repository
         public Task<UserAccount?> GetByEmail(string email);
         public Task<UserAccount?> GetById(Guid id);
         public Task SignUp(UserAccount userAccount);
+        public Task<List<UserAccount>> GetPendingUserAccounts();
     }
 }

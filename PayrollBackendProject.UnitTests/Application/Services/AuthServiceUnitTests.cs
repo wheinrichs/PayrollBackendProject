@@ -109,7 +109,6 @@ public class AuthServiceUnitTests
 
         var returnedUser = await service.SignUp(new SignUpRequestDTO(email, password, "test", "test", "Admin"), RoleEnum.ADMIN);
 
-        Assert.Equal("NewToken", returnedUser!.Token);
         userRepo.Verify(r => r.SignUp(It.IsAny<UserAccount>()), Times.Once);
     }
 

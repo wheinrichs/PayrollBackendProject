@@ -29,6 +29,9 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 
     private async Task<LoginResponseDTO> Signup(string role)
     {
+        var superAdmin = new UserAccount("superAdmin@example.com", "password1", "X", "Y");
+        superAdmin.UserStatus = 
+
         var email = $"user_{Guid.NewGuid()}@test.com";
 
         var res = await _client.PostAsJsonAsync("/api/auth/signup",

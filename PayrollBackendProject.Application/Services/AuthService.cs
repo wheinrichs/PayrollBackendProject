@@ -80,5 +80,33 @@ namespace PayrollBackendProject.Application.Services
             await _unitOfWork.SaveChangesAsync();
             return new SignUpResponseDTO(domainNewUser.Email, domainNewUser.UserStatus.ToString(), "Account created and pending admin approval.");
         }
+
+        public async Task ApprovePendingUserAccount(Guid id)
+        {
+            var existingUser = await _repo.GetById(id);
+            if (existingUser == null)
+            {
+                throw new DirectoryNotFoundException("User account not found.");
+            }
+            existingUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task DisableUserAccount(Guid id)
+        {
+            var existingUser = await _repo.GetById(id);
+            if (existingUser == null)
+            {
+                throw new DirectoryNotFoundException("User account not found.");
+            }
+            existingUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.DENIED);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task<List<UserAccountDTO>> GetPendingUserAccounts()
+        {
+            List<UserAccount> userAccounts = await _repo.GetPendingUserAccounts();
+            return userAccounts.Select(u => UserAccountMapper.UserAccountToDto(u)).ToList();
+        }
     }
 }

@@ -29,5 +29,10 @@ namespace PayrollBackendProject.Infrastructure.Repository
         {
             _database.Users.Add(userAccount);
         }
+
+        public async Task<List<UserAccount>> GetPendingUserAccounts()
+        {
+            return await _database.Users.Where(u => u.UserStatus == Domain.Enums.UserAccountApprovalStateEnum.PENDING_APPROVAL).ToListAsync();
+        }
     }
 }
