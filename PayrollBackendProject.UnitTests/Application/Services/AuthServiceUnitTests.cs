@@ -33,6 +33,7 @@ public class AuthServiceUnitTests
         string password = "testPassword";
 
         UserAccount retrievedUser = UserAccount.GenerateUserAccount(email, password, "test", "test", RoleEnum.ADMIN, null);
+        retrievedUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
         retrievedUser.PasswordHash = "hash";
         mockRepo.Setup(r => r.GetByEmail(email)).ReturnsAsync(retrievedUser);
 

@@ -43,7 +43,7 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 ""Jane Adams, PhdD"",03/05/2026,87469109,12/30/2025,90837,1247658903.0,03/04/2026,-31.88,,Pat Pmt,100,CIGNA,AlexisKremp
 ""Henry Trial"",03/06/2026,87495148,01/20/2026,90791,1247658956.0,03/04/2026,-34.21,,Ins Reversal,500,CIGNA,HannahRomero
 ""Karen Lane"",03/07/2026,87495148,01/26/2026,90837,1247658903.0,03/04/2026,-34.21,,Ins Pmt,102,CIGNA,WinstonHeinrichs";
-        
+
         // Convert that string into a byte array that will be passed as the content
         var fileConent = new ByteArrayContent(Encoding.UTF8.GetBytes(csvRows));
 
@@ -57,6 +57,18 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         return content;
     }
 
+    private async Task ApproveUser(string email, RoleEnum role)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+
+        var user = await db.Users.FirstAsync(u => u.Email == email);
+        user.Role = role;
+        user.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
+
+        await db.SaveChangesAsync();
+    }
+
     private async Task<LoginResponseDTO?> SignupForTestAsAdmin()
     {
         var signUpRequest = new SignUpRequestDTO($"new_{Guid.NewGuid()}@test.com", "Password123!", "A", "B", "admin");
@@ -64,21 +76,32 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var signUpResponse = await _client.PostAsJsonAsync("/api/auth/signup", signUpRequest);
         signUpResponse.EnsureSuccessStatusCode();
 
+        await ApproveUser(signUpRequest.Email, RoleEnum.ADMIN);
+
         var loginRequest = new LoginRequestDTO(signUpRequest.Email, signUpRequest.Password);
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
+        loginResponse.EnsureSuccessStatusCode();
 
         var loginResult = await loginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
         return loginResult;
     }
 
     private async Task<LoginResponseDTO?> SignupForTestAsClinician()
-    {   
+    {
         var loginRequest = new SignUpRequestDTO($"new_{Guid.NewGuid()}@test.com", "Password123!", "A", "B", "clinician");
 
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/signup", loginRequest);
         loginResponse.EnsureSuccessStatusCode();
 
-        var loginResult = await loginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
+        await ApproveUser(loginRequest.Email, RoleEnum.CLINICIAN);
+
+        var actualLoginResponse = await _client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequestDTO(loginRequest.Email, loginRequest.Password)
+        );
+        actualLoginResponse.EnsureSuccessStatusCode();
+
+        var loginResult = await actualLoginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
         return loginResult;
     }
 
@@ -91,8 +114,8 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         // Login so the requests can go through       
         var loginResult = await SignupForTestAsAdmin();
         // Attach the token to the requests with this client
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token); 
-        
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token);
+
         // Create scope to access services for the db and for the import job (since not using hangfire)
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
@@ -156,7 +179,7 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         // Login so the requests can go through       
         var loginResult = await SignupForTestAsClinician();
         // Attach the token to the requests with this client
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token); 
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token);
 
         // Create the file for the request
         var content = createCsvForRequest();
@@ -235,7 +258,7 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         var unresolvedPaymentsEndpointResult = await _client.GetAsync("/api/import/UnresolvedClinicianPayments");
         var unresolvedPaymentsEndpoint = await unresolvedPaymentsEndpointResult.Content.ReadFromJsonAsync<List<PaymentLineItemDTO>>();
         Assert.Equal(4, unresolvedPaymentsEndpoint!.Count);
-        foreach(PaymentLineItem payment in unresolvedPayments)
+        foreach (PaymentLineItem payment in unresolvedPayments)
         {
             Assert.Contains(unresolvedPaymentsEndpoint, p => p.Id == payment.Id);
         }

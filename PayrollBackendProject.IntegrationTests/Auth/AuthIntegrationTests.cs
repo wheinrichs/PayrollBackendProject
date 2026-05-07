@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using PayrollBackendProject.Infrastructure.Data;
 using PayrollBackendProject.Domain.Entity;
+using PayrollBackendProject.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using PayrollBackendProject.Application.DTO;
 using Microsoft.AspNetCore.Http;
@@ -31,7 +32,7 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     /*
-    Test that signing up a new user creates a new user in the database and can then log on.
+    Test that signing up a new user creates a new pending user in the database.
     */
     [Fact]
     public async Task SignUp_ValidUserCreatesUser()
@@ -44,40 +45,39 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
             lastName: "Doe",
             role: "Admin");
 
-        // Send this request to the client -> notice here you are hitting the full endpoint
+        // Send this request to the client, notice here you are hitting the full endpoint
         HttpResponseMessage response = await _client.PostAsJsonAsync("/api/auth/signup", request);
         response.EnsureSuccessStatusCode();
-        // The response type needs to be deconstructed back into your LoginResponseDTO if you want to inspect it
-        LoginResponseDTO? result = await response.Content.ReadFromJsonAsync<LoginResponseDTO>();
-        Assert.NotNull(result);
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        // The scope from you request ended, so you need a new scope to get access to the DB
+        // The scope from your request ended, so you need a new scope to get access to the DB
         using IServiceScope scope = _factory.Services.CreateScope();
+
         // Retrieve the db context from the scope 
         ClinicianDbContext db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
-
-        // Check that the user can logon now and retrieves a valid token
-        LoginRequestDTO loginRequest = new("newuser@test.com", "Password123!");
-        HttpResponseMessage loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
-
-        var rawLogin = await loginResponse.Content.ReadAsStringAsync();
-
-        Assert.True(loginResponse.IsSuccessStatusCode, $"Login failed: {rawLogin}");
-
-        LoginResponseDTO? token = await loginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
 
         // Check the db directly for the test you ran
         var user = db.Users.FirstOrDefault(u => u.Email == "newuser@test.com");
 
         Assert.NotNull(user);
-        Assert.NotNull(token!.Token);
-        Assert.Equal(token!.FirstName, user.FirstName);
+        Assert.Equal("John", user.FirstName);
+        Assert.Equal("Doe", user.LastName);
+        Assert.Equal(UserAccountApprovalStateEnum.PENDING_APPROVAL, user.UserStatus);
     }
 
     /*
     Test that invalid credentials fails login
     */
+    [Fact]
+    public async Task Login_InvalidCredentials_ReturnsUnauthorized()
+    {
+        LoginRequestDTO loginRequest = new(
+            email: "doesnotexist@test.com",
+            password: "WrongPassword123!");
 
+        HttpResponseMessage response = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
 
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

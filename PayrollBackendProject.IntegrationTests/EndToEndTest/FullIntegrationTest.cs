@@ -40,7 +40,7 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 ""Jane Adams, PhdD"",03/05/2026,87469109,12/30/2025,90837,1247658903.0,03/04/2026,-31.88,,Pat Pmt,100,CIGNA,AlexisKremp
 ""Henry Trial"",03/06/2026,87495148,01/20/2026,90791,1247658956.0,03/04/2026,-34.21,,Ins Reversal,500,CIGNA,HannahRomero
 ""Karen Lane"",03/07/2026,87495148,01/26/2026,90837,1247658903.0,03/04/2026,-34.21,,Ins Pmt,102,CIGNA,WinstonHeinrichs";
-        
+
         // Convert that string into a byte array that will be passed as the content
         var fileConent = new ByteArrayContent(Encoding.UTF8.GetBytes(csvRows));
 
@@ -53,7 +53,7 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         content.Add(fileConent, "file", "CsvPayments.csv");
         return content;
     }
-    
+
     /*
     Test that you can sign up for an account as a clinician, sign up for an account as a backend user, upload a csv 
     file as a back end user, create a pay run, approve a pay run, approve a statement, sign in as the clinician user,
@@ -68,26 +68,47 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         var job = scope.ServiceProvider.GetRequiredService<IImportJob>();
 
         // Sign up as the clinician
-        HttpResponseMessage response = await _client.PostAsJsonAsync("/api/auth/signup", new {
+        HttpResponseMessage response = await _client.PostAsJsonAsync("/api/auth/signup", new
+        {
             email = "user@example.com",
-            password =  "string",
+            password = "string",
             firstName = "FirstNameClinician",
             lastName = "LastNameClinician",
             role = "clinician"
         });
         response.EnsureSuccessStatusCode();
 
+        var clinicianUser = await db.Users.FirstAsync(u => u.Email == "user@example.com");
+        clinicianUser.Role = RoleEnum.CLINICIAN;
+        clinicianUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
+        await db.SaveChangesAsync();
+
         // Sign up as the backend user
-        HttpResponseMessage backendResponse = await _client.PostAsJsonAsync("/api/auth/signup", new {
+        HttpResponseMessage backendResponse = await _client.PostAsJsonAsync("/api/auth/signup", new
+        {
             email = "backend@example.com",
-            password =  "backenduser",
+            password = "backenduser",
             firstName = "FirstNameBackend",
             lastName = "LastNameBackend",
             role = "backend"
         });
         backendResponse.EnsureSuccessStatusCode();
-        LoginResponseDTO? backendLoginResponse = await backendResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
+
+        var backendUser = await db.Users.FirstAsync(u => u.Email == "backend@example.com");
+        backendUser.Role = RoleEnum.BACKEND;
+        backendUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
+        await db.SaveChangesAsync();
+
+        HttpResponseMessage backendLoginResponseMessage = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = "backend@example.com",
+            password = "backenduser"
+        });
+        backendLoginResponseMessage.EnsureSuccessStatusCode();
+
+        LoginResponseDTO? backendLoginResponse = await backendLoginResponseMessage.Content.ReadFromJsonAsync<LoginResponseDTO>();
         Assert.NotNull(backendLoginResponse);
+
         // Save the token for future requests
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", backendLoginResponse.Token);
@@ -97,7 +118,8 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 
         // Upload the csv as the backend user
         HttpResponseMessage uploadResponse = await _client.PostAsync("/api/import/upload", csvFile);
-        backendResponse.EnsureSuccessStatusCode();
+        uploadResponse.EnsureSuccessStatusCode();
+
         // Extract the Guid from the response
         var batchId = await uploadResponse.Content.ReadFromJsonAsync<Guid>();
 
@@ -112,16 +134,16 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         Assert.NotNull(payRunReponseContent);
 
         // Approve the pay run
-        HttpResponseMessage approvePayRunResponseMessage = 
+        HttpResponseMessage approvePayRunResponseMessage =
             await _client.PostAsync($"/approveRun/{payRunReponseContent.Id}/approve", null);
         approvePayRunResponseMessage.EnsureSuccessStatusCode();
 
         // Approve the statement
-        HttpResponseMessage retrieveAllStatements = 
+        HttpResponseMessage retrieveAllStatements =
             await _client.GetAsync($"/api/PayRun/{payRunReponseContent.Id}");
         List<PayStatementDTO>? listOfStatements = await retrieveAllStatements.Content.ReadFromJsonAsync<List<PayStatementDTO>>();
         Assert.NotNull(listOfStatements);
-        foreach(PayStatementDTO s in listOfStatements)
+        foreach (PayStatementDTO s in listOfStatements)
         {
             await _client.PostAsync($"/approveStatement/{s.Id}/approve", null);
         }
@@ -130,21 +152,21 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         HttpResponseMessage clinicianLoginResponseMessage = await _client.PostAsJsonAsync("/api/auth/login", new
         {
             email = "user@example.com",
-            password =  "string"
+            password = "string"
         });
         clinicianLoginResponseMessage.EnsureSuccessStatusCode();
         LoginResponseDTO? clinicianLoginResponse = await clinicianLoginResponseMessage.Content.ReadFromJsonAsync<LoginResponseDTO>();
         Assert.NotNull(clinicianLoginResponse);
         // Set the token to the client
-        _client.DefaultRequestHeaders.Authorization = 
+        _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", clinicianLoginResponse.Token);
 
         // Get the clinicians pay statement
         HttpResponseMessage clinicianStatementMessage = await _client.GetAsync("/api/Me/Statements/");
-        clinicianLoginResponseMessage.EnsureSuccessStatusCode();
+        clinicianStatementMessage.EnsureSuccessStatusCode();
         List<PayStatementDTO>? clinicianPayStatementDTO = await clinicianStatementMessage.Content.ReadFromJsonAsync<List<PayStatementDTO>>();
         Assert.NotNull(clinicianPayStatementDTO);
         Assert.Equal(-31.88m, clinicianPayStatementDTO[0].TotalPayment);
     }
-    
+
 }

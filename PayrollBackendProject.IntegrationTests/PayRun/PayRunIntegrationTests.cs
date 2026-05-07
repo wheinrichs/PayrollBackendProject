@@ -8,6 +8,8 @@ using PayrollBackendProject.Application.DTO;
 using PayrollBackendProject.Domain.Entity;
 using PayrollBackendProject.Domain.Enums;
 using PayrollBackendProject.Infrastructure.Data;
+using PayrollBackendProject.Infrastructure.Auth;
+using PayrollBackendProject.Application.Interfaces.Utilities;
 
 namespace PayrollBackendProject.IntegrationTests;
 
@@ -27,17 +29,24 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         _factory = factory;
     }
 
-    private async Task<LoginResponseDTO> Signup(string role)
+    private async Task<LoginResponseDTO> Signup(string role, ClinicianDbContext db)
     {
-        var superAdmin = new UserAccount("superAdmin@example.com", "password1", "X", "Y");
-        superAdmin.UserStatus = 
-
+        // Create an already approved super admin
         var email = $"user_{Guid.NewGuid()}@test.com";
 
-        var res = await _client.PostAsJsonAsync("/api/auth/signup",
-            new SignUpRequestDTO(email, "Password123!", "A", "B", role));
+        var passwordHasher = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<IPasswordHasher>();
 
+        var hashedPassword = passwordHasher.Hash("password1");
+        var superAdmin = new UserAccount(email, hashedPassword, "X", "Y");
+        superAdmin.Role = RoleEnum.ADMIN;
+        superAdmin.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
+        db.Add<UserAccount>(superAdmin);
+        await db.SaveChangesAsync();
+
+        var res = await _client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequestDTO(email, "password1"));
         res.EnsureSuccessStatusCode();
+
         return (await res.Content.ReadFromJsonAsync<LoginResponseDTO>())!;
     }
 
@@ -85,11 +94,11 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
     [Fact]
     public async Task GeneratePayRun_CorrectGrouping_AndDateFiltering()
     {
-        var admin = await Signup("admin");
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", admin.Token);
-
-        var db = await ResetDb();
 
         var clinician1 = new Clinician("A", "One", "c1@test.com", true, 0.6);
         var clinician2 = new Clinician("B", "Two", "c2@test.com", true, 0.6);
@@ -156,11 +165,11 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
     [Fact]
     public async Task ApprovePayRun_AndStatement_UpdatesStatus()
     {
-        var admin = await Signup("admin");
+        var db = await ResetDb();
+        
+        var admin = await Signup("admin", db);
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", admin.Token);
-
-        var db = await ResetDb();
 
         var clinician = new Clinician("A", "One", "c@test.com", true, 0.6);
         var batch = new ImportBatch("file.csv", "fp");
@@ -209,11 +218,11 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
     [Fact]
     public async Task Snapshot_IsImmutable_AfterModification()
     {
-        var admin = await Signup("admin");
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", admin.Token);
-
-        var db = await ResetDb();
 
         var clinician = new Clinician("A", "One", "c@test.com", true, 0.6);
         var batch = new ImportBatch("file.csv", "fp");
@@ -264,43 +273,42 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 
         // Get the clinician from the database
         Guid clinicianId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+        var scope = _factory.Services.CreateScope();
+        
+        var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
 
-            clinicianId = await db.Clinicians
-                .Where(c => c.Email == "c1@test.com")
-                .Select(c => c.ID)
-                .FirstAsync();
-        }
+        clinicianId = await db.Clinicians
+            .Where(c => c.Email == "c1@test.com")
+            .Select(c => c.ID)
+            .FirstAsync();
 
-        // Set up payment data
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
 
-            var clinician = await db.Clinicians.FirstAsync(c => c.ID == clinicianId);
-            var otherClinician = new Clinician("B", "Two", "c2@test.com", true, 0.6);
+        var clinician = await db.Clinicians.FirstAsync(c => c.ID == clinicianId);
+        var otherClinician = new Clinician("B", "Two", "c2@test.com", true, 0.6);
 
-            var batch = new ImportBatch("file.csv", "fp");
-            var ehrUser = new EHRUser("A", "B", "AB");
+        var batch = new ImportBatch("file.csv", "fp");
+        var ehrUser = new EHRUser("A", "B", "AB");
 
-            db.Clinicians.Add(otherClinician);
-            db.ImportBatches.Add(batch);
-            db.EHRUsers.Add(ehrUser);
+        db.Clinicians.Add(otherClinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
 
-            var applied = DateTime.UtcNow.AddDays(-1);
+        var applied = DateTime.UtcNow.AddDays(-1);
 
-            db.PaymentLineItems.AddRange(
-                CreatePayment(clinician, batch, ehrUser, 100, DateTime.UtcNow, applied, 1),
-                CreatePayment(otherClinician, batch, ehrUser, 200, DateTime.UtcNow, applied, 2)
-            );
+        db.PaymentLineItems.AddRange(
+            CreatePayment(clinician, batch, ehrUser, 100, DateTime.UtcNow, applied, 1),
+            CreatePayment(otherClinician, batch, ehrUser, 200, DateTime.UtcNow, applied, 2)
+        );
 
-            await db.SaveChangesAsync();
-        }
+        // Manually approve the clinician account and set the role
+        var clinicianUser = await db.Users.FirstAsync(u => u.Email == "c1@test.com");
+        clinicianUser.Role = RoleEnum.CLINICIAN;
+        clinicianUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
 
+        await db.SaveChangesAsync();
+        
         // Sign in as an admin and execute the payrun
-        var admin = await Signup("admin");
+        var admin = await Signup("admin", db);
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", admin.Token);
 
@@ -316,26 +324,30 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 
         // Load the pay run and retrieve the statement ID for the new clinician 
         Guid clinicianStatementId;
-        using (var scope = _factory.Services.CreateScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
 
-            var payRun = await db.PayRuns
-                .Include(p => p.Statements)
-                .FirstAsync(p => p.Id == payRunId);
+        var payRun = await db.PayRuns
+            .Include(p => p.Statements)
+            .FirstAsync(p => p.Id == payRunId);
 
-            clinicianStatementId = payRun.Statements
-                .First(s => s.ClinicianId == clinicianId)
-                .Id;
-        }
+        clinicianStatementId = payRun.Statements
+            .First(s => s.ClinicianId == clinicianId)
+            .Id;
+       
 
         // Approve the statement for this clinician
         await _client.PostAsync($"/approveRun/{payRunId}/approve", null);
         await _client.PostAsync($"/approveStatement/{clinicianStatementId}/approve", null);
 
         // Sign in as the clinician
+        var clinicianLoginResponse = await _client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequestDTO("c1@test.com", "Password123!")
+        );
+
+        var loginBody = await clinicianLoginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
+
         _client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", clinicianAuth!.Token);
+            new AuthenticationHeaderValue("Bearer", loginBody!.Token);
 
         // Test the endpoint
         var statementsRes = await _client.GetAsync("/api/me/statements");
