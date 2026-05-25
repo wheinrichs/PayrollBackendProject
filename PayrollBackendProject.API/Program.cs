@@ -28,6 +28,16 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddControllers();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 builder.Configuration.AddEnvironmentVariables();
 
 // Setup authentication and JWT
@@ -234,6 +244,8 @@ if (!app.Environment.IsEnvironment("Testing") && !app.Environment.IsEnvironment(
 {
     app.UseHttpsRedirection();
 }
+
+app.UseCors();
 
 app.UseAuthentication();
 
