@@ -13,7 +13,7 @@ using PayrollBackendProject.Infrastructure.Data;
 namespace PayrollBackendProject.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicianDbContext))]
-    [Migration("20260414125532_InitialCreate")]
+    [Migration("20260525173252_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -267,9 +267,6 @@ namespace PayrollBackendProject.Infrastructure.Migrations
                     b.Property<decimal>("AdjustmentAmount")
                         .HasColumnType("numeric");
 
-                    b.Property<int>("AdjustmentCode")
-                        .HasColumnType("integer");
-
                     b.Property<Guid>("AppliedById")
                         .HasColumnType("uuid");
 
@@ -300,6 +297,9 @@ namespace PayrollBackendProject.Infrastructure.Migrations
                     b.Property<string>("Payer")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("PaymentAdjustmentCode")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("PaymentAmount")
                         .HasColumnType("numeric");
@@ -443,6 +443,9 @@ namespace PayrollBackendProject.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserStatus")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");

@@ -99,7 +99,8 @@ namespace PayrollBackendProject.Infrastructure.Migrations
                     LastName = table.Column<string>(type: "text", nullable: false),
                     PracticeMateAccountName = table.Column<string>(type: "text", nullable: false),
                     ClinicianId = table.Column<Guid>(type: "uuid", nullable: true),
-                    Role = table.Column<int>(type: "integer", nullable: false)
+                    Role = table.Column<int>(type: "integer", nullable: false),
+                    UserStatus = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -219,7 +220,7 @@ namespace PayrollBackendProject.Infrastructure.Migrations
                     RawClinicianName = table.Column<string>(type: "text", nullable: false),
                     PaymentAmount = table.Column<decimal>(type: "numeric", nullable: false),
                     AdjustmentAmount = table.Column<decimal>(type: "numeric", nullable: false),
-                    AdjustmentCode = table.Column<int>(type: "integer", nullable: false),
+                    PaymentAdjustmentCode = table.Column<int>(type: "integer", nullable: false),
                     DateOfService = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     PatientId = table.Column<string>(type: "text", nullable: false),
                     CPTCode = table.Column<string>(type: "text", nullable: false),
