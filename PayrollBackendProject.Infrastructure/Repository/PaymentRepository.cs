@@ -60,5 +60,17 @@ namespace PayrollBackendProject.Infrastructure.Repository
         {
             return await _database.PaymentLineItems.Where(p => p.ClinicianId == null).ToListAsync();
         }
+
+        public async Task<List<PaymentLineItem>> GetUnappliedCode500Payments()
+        {
+            return await _database.PaymentLineItems
+                .Where(p => p.PaymentAdjustmentCode == Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK && !p.IsCode500Applied)
+                .ToListAsync();
+        }
+
+        public async Task<PaymentLineItem?> GetPaymentLineItemById(Guid id)
+        {
+            return await _database.PaymentLineItems.FindAsync(id);
+        }
     }
 }

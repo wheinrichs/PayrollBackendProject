@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PayrollBackendProject.Infrastructure.Data;
@@ -12,9 +13,11 @@ using PayrollBackendProject.Infrastructure.Data;
 namespace PayrollBackendProject.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicianDbContext))]
-    partial class ClinicianDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260629123122_Code500ApplyAndManualEntry")]
+    partial class Code500ApplyAndManualEntry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

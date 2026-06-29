@@ -1,7 +1,6 @@
 ﻿using PayrollBackendProject.Application.DTO;
 using PayrollBackendProject.Domain.Entity;
 using PayrollBackendProject.Domain.Enums;
-using System.Net.NetworkInformation;
 
 namespace PayrollBackendProject.Application.Mappings
 {
@@ -40,6 +39,52 @@ namespace PayrollBackendProject.Application.Mappings
                 NormalizeToUTCRequired(row.AppliedDate),
                 NormalizeToUTCOptional(row.PaymentDate)
                 );
+        }
+
+        public static UnappliedCode500ResponseDTO DomainToUnappliedCode500DTO(PaymentLineItem item)
+        {
+            return new UnappliedCode500ResponseDTO
+            {
+                Id = item.Id,
+                PaymentAmount = item.PaymentAmount,
+                AdjustmentAmount = item.AdjustmentAmount,
+                DateOfService = item.DateOfService,
+                PatientId = item.PatientId,
+                CPTCode = item.CPTCode,
+                PaymentId = item.PaymentId,
+                Payer = item.Payer,
+                RawClinicianName = item.RawClinicianName,
+                AppliedDate = item.AppliedDate,
+                PaymentDate = item.PaymentDate,
+                ImportBatchId = item.ImportBatchId
+            };
+        }
+
+        public static PaymentLineItem ManualDtoToDomain(ManualPaymentRequestDTO dto, Clinician? clinician, EHRUser appliedBy, string fingerprint)
+        {
+            if (!Enum.IsDefined(typeof(PaymentAdjustmentCodeEnum), dto.PaymentAdjustmentCode))
+                throw new ArgumentException($"Invalid adjustment code: {dto.PaymentAdjustmentCode}");
+
+            var codeEnum = (PaymentAdjustmentCodeEnum)dto.PaymentAdjustmentCode;
+            string rawData = $"MANUAL|{dto.PatientId}|{dto.CPTCode}|{dto.PaymentId}|{dto.DateOfService:O}";
+
+            return PaymentLineItem.GenerateManualPaymentLineItem(
+                rawData,
+                clinician,
+                dto.RawClinicianName,
+                dto.PaymentAmount,
+                dto.AdjustmentAmount,
+                codeEnum,
+                NormalizeToUTCRequired(dto.DateOfService),
+                dto.PatientId,
+                dto.CPTCode,
+                dto.PaymentId,
+                dto.Payer,
+                appliedBy,
+                fingerprint,
+                NormalizeToUTCRequired(dto.AppliedDate),
+                NormalizeToUTCOptional(dto.PaymentDate)
+            );
         }
 
         private static DateTime? NormalizeToUTCOptional(DateTime? dt)

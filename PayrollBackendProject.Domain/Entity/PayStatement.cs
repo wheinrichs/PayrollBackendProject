@@ -1,4 +1,5 @@
 ﻿using PayrollBackendProject.Domain.Enums;
+using System.Linq;
 
 namespace PayrollBackendProject.Domain.Entity
 {
@@ -51,7 +52,12 @@ namespace PayrollBackendProject.Domain.Entity
             }
             TotalPayment = LineItems.Sum(p => p.PaymentAmount);
             TotalAdjustment = LineItems.Sum(p => p.AdjustmentAmount);
-            CostShareAdjustedPayment = TotalPayment * ClinicianCostShare;
+
+            decimal code500Deductions = LineItems
+                .Where(p => p.AdjustmentCode == PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
+                .Sum(p => p.AdjustmentAmount);
+
+            CostShareAdjustedPayment = (TotalPayment - Math.Abs(code500Deductions)) * ClinicianCostShare;
             ApprovalState = ApprovalStateEnum.PENDING;
         }
 

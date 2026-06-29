@@ -22,5 +22,13 @@ namespace PayrollBackendProject.Infrastructure.Utilities
             byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hashInputString));
             return Convert.ToHexString(hash);
         }
+
+        public async Task<string> ManualEntryComputeSHA256Async(string patientId, string cptCode, string paymentId, DateTime dateOfService, int adjustmentCode)
+        {
+            string input = $"{patientId}|{cptCode}|{paymentId}|{dateOfService:O}|{adjustmentCode}|MANUAL";
+            using var sha256 = SHA256.Create();
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return Convert.ToHexString(hash);
+        }
     }
 }

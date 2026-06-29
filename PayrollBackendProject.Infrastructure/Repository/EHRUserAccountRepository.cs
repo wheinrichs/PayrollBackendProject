@@ -35,5 +35,6 @@ namespace PayrollBackendProject.Infrastructure.Repository
             EHRUser? retrievedUser = await _database.EHRUsers.FirstOrDefaultAsync(u => u.EHRUsername == username);
             return retrievedUser;
         }
+
     }
 }

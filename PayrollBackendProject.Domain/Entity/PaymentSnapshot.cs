@@ -27,7 +27,7 @@ namespace PayrollBackendProject.Domain.Entity
         public string PaymentId { get; private set; } = string.Empty;
         public string Payer { get; private set; } = string.Empty;
         public Guid AppliedById { get; private set; }
-        public Guid ImportBatchId { get; private set; }
+        public Guid? ImportBatchId { get; private set; }
         public int RowNumber { get; private set; }
         public DateTime AppliedDate { get; private set; }
         public DateTime? PaymentDate { get; private set; }

@@ -28,6 +28,12 @@ namespace PayrollBackendProject.Infrastructure.Data
             modelBuilder.Entity<ImportBatch>().HasIndex(batch => batch.Fingerprint).IsUnique();
 
             modelBuilder.Entity<PaymentLineItem>().HasIndex(line => line.Fingerprint).IsUnique();
+
+            modelBuilder.Entity<PaymentLineItem>()
+                .HasOne(p => p.ImportBatch)
+                .WithMany()
+                .HasForeignKey(p => p.ImportBatchId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

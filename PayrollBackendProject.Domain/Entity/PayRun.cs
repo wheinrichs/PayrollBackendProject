@@ -1,5 +1,4 @@
 ﻿using PayrollBackendProject.Domain.Enums;
-using System.Net;
 
 namespace PayrollBackendProject.Domain.Entity
 {
@@ -8,8 +7,10 @@ namespace PayrollBackendProject.Domain.Entity
         public Guid Id { get; private set; }
         public DateTime StartDate { get; set;}
         public DateTime EndDate { get; set;}
-        public Decimal TotalApplied { get; private set; } = 0.0m;
-        public Decimal TotalAdjudicated { get; private set; } = 0.0m;
+        public decimal TotalApplied { get; private set; } = 0.0m;
+        public decimal TotalAdjudicated { get; private set; } = 0.0m;
+        public decimal GrossPaymentTotal { get; private set; } = 0.0m;
+        public decimal TotalCode500Deductions { get; private set; } = 0.0m;
         public List<PayStatement> Statements { get; private set; } = new();
         public List<PaymentSnapshot> Payments { get; private set; } = new();
         public Decimal StatementTotals { get; private set; }
@@ -57,9 +58,13 @@ namespace PayrollBackendProject.Domain.Entity
             {
                 throw new InvalidOperationException("Can only compute totals in pay run draft state");
             }
-            StatementTotals = Statements.Sum(s => s.TotalPayment);
+            GrossPaymentTotal = Statements.Sum(s => s.TotalPayment);
             TotalAdjudicated = Payments.Sum(p => p.AdjustmentAmount);
             TotalApplied = Payments.Sum(p => p.PaymentAmount);
+            TotalCode500Deductions = Math.Abs(Payments
+                .Where(p => p.AdjustmentCode == PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
+                .Sum(p => p.AdjustmentAmount));
+            StatementTotals = Statements.Sum(s => s.CostShareAdjustedPayment);
             ApprovalState = ApprovalStateEnum.PENDING;
             GenerationStatus = PayRunStatusEnum.COMPLETED;
         }

@@ -38,7 +38,17 @@ namespace PayrollBackendProject.Application.DTO
         public decimal TotalAdjudicated { get; private set; }
 
         /// <summary>
-        /// Gets the sum of all pay statement totals associated with this pay run.
+        /// Gets the total gross payment across all clinicians before cost share and code-500 deductions.
+        /// </summary>
+        public decimal GrossPaymentTotal { get; private set; }
+
+        /// <summary>
+        /// Gets the total value of approved INSURANCE_TAKEBACK (code 500) deductions in this pay run.
+        /// </summary>
+        public decimal TotalCode500Deductions { get; private set; }
+
+        /// <summary>
+        /// Gets the net payout to all clinicians after cost share and code-500 deductions.
         /// </summary>
         public decimal StatementTotals { get; private set; }
 
@@ -82,7 +92,9 @@ namespace PayrollBackendProject.Application.DTO
         /// <param name="endDate">The end date of the pay run period.</param>
         /// <param name="totalApplied">The total applied payment amount.</param>
         /// <param name="totalAdjudicated">The total adjudicated payment amount.</param>
-        /// <param name="statementTotals">The total of all associated pay statements.</param>
+        /// <param name="statementTotals">The net payout to all clinicians after cost share and deductions.</param>
+        /// <param name="grossPaymentTotal">The gross payment total before cost share and code-500 deductions.</param>
+        /// <param name="totalCode500Deductions">The total value of approved code-500 deductions.</param>
         /// <param name="generationStatus">The current generation status of the pay run.</param>
         /// <param name="approvalStatus">The approval status of the pay run.</param>
         /// <param name="approvedRejectedBy">The user who approved or rejected the pay run.</param>
@@ -93,6 +105,8 @@ namespace PayrollBackendProject.Application.DTO
             DateTime endDate,
             decimal totalApplied,
             decimal totalAdjudicated,
+            decimal grossPaymentTotal,
+            decimal totalCode500Deductions,
             decimal statementTotals,
             PayRunStatusEnum generationStatus,
             ApprovalStateEnum approvalStatus,
@@ -104,6 +118,8 @@ namespace PayrollBackendProject.Application.DTO
             EndDate = endDate;
             TotalApplied = totalApplied;
             TotalAdjudicated = totalAdjudicated;
+            GrossPaymentTotal = grossPaymentTotal;
+            TotalCode500Deductions = totalCode500Deductions;
             StatementTotals = statementTotals;
             GenerationStatus = generationStatus;
             ApprovalStatus = approvalStatus;

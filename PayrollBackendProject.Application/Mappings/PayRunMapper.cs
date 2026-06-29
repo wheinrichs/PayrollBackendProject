@@ -12,7 +12,13 @@ namespace PayrollBackendProject.Application.Mappings
 
         public static PayRunResponseDTO DomainToDTO(PayRun run)
         {
-            return new PayRunResponseDTO(run.Id, run.StartDate, run.EndDate, run.TotalApplied, run.TotalAdjudicated, run.StatementTotals, run.GenerationStatus, run.ApprovalState, run.ApprovedRejectedBy, run.ApprovedRejectedOn);
+            return new PayRunResponseDTO(
+                run.Id, run.StartDate, run.EndDate,
+                run.TotalApplied, run.TotalAdjudicated,
+                run.GrossPaymentTotal, run.TotalCode500Deductions,
+                run.StatementTotals,
+                run.GenerationStatus, run.ApprovalState,
+                run.ApprovedRejectedBy, run.ApprovedRejectedOn);
         }
     }
 }
