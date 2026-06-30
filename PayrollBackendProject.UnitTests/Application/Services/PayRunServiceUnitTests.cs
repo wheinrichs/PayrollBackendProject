@@ -259,24 +259,95 @@ public class PayRunServiceTests
         Assert.Single(result);
     }
 
-    private PaymentLineItem GeneratePaymentLineItem(Clinician? clinician = null)
+    /*
+    Validate that unapplied code 500 (INSURANCE_TAKEBACK) payments are excluded from the pay run
+    and do not affect the statement totals
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldExclude_UnappliedCode500Payments()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", false, 0.6);
+
+        var normalPayment = GeneratePaymentLineItem(clinician, 500m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
+        var unappliedTakeback = GeneratePaymentLineItem(clinician, 0m, -200m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { normalPayment, unappliedTakeback });
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO { StartDate = DateTime.UtcNow.AddDays(-7), EndDate = DateTime.UtcNow };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        // Only the normal payment was included; the unapplied code 500 was filtered out
+        Assert.Equal(0m, result.TotalCode500Deductions);
+        Assert.Equal(500m * 0.6m, result.StatementTotals);
+    }
+
+    /*
+    Validate that an applied code 500 (INSURANCE_TAKEBACK) payment is included in the pay run
+    and its deduction is reflected in the statement's CostShareAdjustedPayment and the
+    pay run's TotalCode500Deductions field
+    */
+    [Fact]
+    public async Task ExecutePayRun_WithAppliedCode500_ShouldReduceStatementTotals_AndReportDeductions()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", false, 0.6);
+
+        var normalPayment = GeneratePaymentLineItem(clinician, 1000m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
+        var appliedTakeback = GeneratePaymentLineItem(clinician, 0m, -200m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK);
+        appliedTakeback.ApplyCode500();
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { normalPayment, appliedTakeback });
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO { StartDate = DateTime.UtcNow.AddDays(-7), EndDate = DateTime.UtcNow };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        // CostShareAdjustedPayment = (1000 - 200) * 0.6 = 480
+        Assert.Equal(480m, result.StatementTotals);
+        Assert.Equal(200m, result.TotalCode500Deductions);
+        Assert.Equal(1000m, result.GrossPaymentTotal);
+    }
+
+    private PaymentLineItem GeneratePaymentLineItem(
+        Clinician? clinician = null,
+        decimal paymentAmount = 12.0m,
+        decimal adjustmentAmount = 10.0m,
+        PaymentAdjustmentCodeEnum code = PaymentAdjustmentCodeEnum.INSURANCE_ADJUSTMENT)
     {
         return PaymentLineItem.GeneratePaymentLineItem(
             "raw",
             clinician,
             "Raw clin name",
-            12.0m,
-            10.0m,
-            PaymentAdjustmentCodeEnum.INSURANCE_ADJUSTMENT,
+            paymentAmount,
+            adjustmentAmount,
+            code,
             DateTime.UtcNow.AddDays(-3),
             "patId",
             "90843",
-            "paymentId",
+            Guid.NewGuid().ToString(),
             "payer",
             new EHRUser("test", "test", "test"),
-            new ImportBatch("filename", "UniqueFingerPrint"),
+            new ImportBatch("filename", Guid.NewGuid().ToString()),
             10,
-            "fingerprint",
+            Guid.NewGuid().ToString(),
             DateTime.UtcNow.AddDays(-4),
             DateTime.UtcNow.AddDays(-4));
     }

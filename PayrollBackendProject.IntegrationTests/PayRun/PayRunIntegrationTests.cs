@@ -242,12 +242,13 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         await _client.PostAsJsonAsync("/api/payrun",
             new { StartDate = applied.AddDays(-1), EndDate = applied.AddDays(1) });
 
-        var snapshot = await db.PaymentSnapshots.FirstAsync();
+        // Filter by the specific payment to avoid returning snapshots created by other tests
+        var snapshot = await db.PaymentSnapshots.FirstAsync(s => s.PaymentLineItemId == payment.Id);
 
         payment.UpdateClinician(clinician);
         await db.SaveChangesAsync();
 
-        var updatedSnapshot = await db.PaymentSnapshots.FirstAsync();
+        var updatedSnapshot = await db.PaymentSnapshots.FirstAsync(s => s.PaymentLineItemId == payment.Id);
 
         Assert.Equal(100, updatedSnapshot.PaymentAmount);
     }
@@ -358,5 +359,198 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         Assert.NotNull(statements);
         Assert.Single(statements);
         Console.WriteLine($"The clinician on the statement is {statements.First().Clinician.ID}");
+    }
+
+    /*
+    Validate that GET /api/payments/takebacks/pending returns only unapplied INSURANCE_TAKEBACK
+    payments, not regular payments and not already-applied takebacks
+    */
+    [Fact]
+    public async Task GetUnappliedCode500Payments_ReturnsOnlyPendingTakebacks()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C5", "Test", $"c5_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use a date range not shared by any pay run in other tests to avoid DB pollution
+        var dos = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+        var applied = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        // One unapplied takeback (should appear in results)
+        var unappliedTakeback = CreateCode500Payment(clinician, batch, ehrUser, -150m, dos, applied, 1);
+
+        // One already-applied takeback (should NOT appear)
+        var appliedTakeback = CreateCode500Payment(clinician, batch, ehrUser, -100m, dos, applied, 2);
+        appliedTakeback.ApplyCode500();
+
+        // One regular payment (should NOT appear)
+        var regularPayment = CreatePayment(clinician, batch, ehrUser, 500m, dos, applied, 3);
+
+        db.PaymentLineItems.AddRange(unappliedTakeback, appliedTakeback, regularPayment);
+        await db.SaveChangesAsync();
+
+        var res = await _client.GetAsync("/api/payments/takebacks/pending");
+        res.EnsureSuccessStatusCode();
+
+        var results = await res.Content.ReadFromJsonAsync<List<UnappliedCode500ResponseDTO>>();
+
+        Assert.NotNull(results);
+        // Other tests may have seeded unapplied code 500s — assert the expected one is present
+        // and the already-applied takeback is absent
+        Assert.Contains(results, r => r.Id == unappliedTakeback.Id);
+        Assert.DoesNotContain(results, r => r.Id == appliedTakeback.Id);
+        Assert.DoesNotContain(results, r => r.Id == regularPayment.Id);
+    }
+
+    /*
+    Validate that an unapplied code 500 payment is excluded from the pay run, so the statement
+    total reflects only the normal payments and TotalCode500Deductions is zero
+    */
+    [Fact]
+    public async Task GeneratePayRun_ExcludesUnappliedCode500_FromStatement()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C6", "Test", $"c6_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use May 2024 — an isolated month not used by any other test's pay run range
+        var dos = new DateTime(2024, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inRange = new DateTime(2024, 5, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        // Normal payment: $500
+        db.PaymentLineItems.Add(CreatePayment(clinician, batch, ehrUser, 500m, dos, inRange, 1));
+
+        // Unapplied code 500 takeback: -$200 adjustment (should be excluded from pay run)
+        db.PaymentLineItems.Add(CreateCode500Payment(clinician, batch, ehrUser, -200m, dos, inRange, 2));
+
+        await db.SaveChangesAsync();
+
+        var start = new DateTime(2024, 5, 1);
+        var end = new DateTime(2024, 5, 31);
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new { StartDate = start, EndDate = end });
+        res.EnsureSuccessStatusCode();
+
+        var payRunResponse = await res.Content.ReadFromJsonAsync<PayRunResponseDTO>();
+
+        Assert.NotNull(payRunResponse);
+        // The unapplied code 500 is excluded — TotalCode500Deductions should be zero
+        Assert.Equal(0m, payRunResponse.TotalCode500Deductions);
+        // Statement total = 500 * 0.6 = 300 (only the normal payment counts)
+        Assert.Equal(300m, payRunResponse.StatementTotals);
+    }
+
+    /*
+    Full end-to-end: apply a code 500 via the API endpoint, then generate a pay run and verify
+    the statement's cost-share-adjusted amount is reduced and TotalCode500Deductions is correct
+    */
+    [Fact]
+    public async Task ApplyCode500_ThenGeneratePayRun_ReducesStatementAmount_AndReportsDeductions()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C7", "Test", $"c7_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use July 2024 — an isolated month not used by any other test's pay run range
+        var dos = new DateTime(2024, 7, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inRange = new DateTime(2024, 7, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        // Normal payment: $1000
+        var normalPayment = CreatePayment(clinician, batch, ehrUser, 1000m, dos, inRange, 1);
+        // Unapplied code 500 takeback: -$200
+        var takeback = CreateCode500Payment(clinician, batch, ehrUser, -200m, dos, inRange, 2);
+
+        db.PaymentLineItems.AddRange(normalPayment, takeback);
+        await db.SaveChangesAsync();
+
+        // Apply the code 500 via API
+        var applyRes = await _client.PostAsync($"/api/payments/takebacks/{takeback.Id}/apply", null);
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, applyRes.StatusCode);
+
+        // Generate the pay run (both payments are now included)
+        var start = new DateTime(2024, 7, 1);
+        var end = new DateTime(2024, 7, 31);
+
+        var payRunRes = await _client.PostAsJsonAsync("/api/payrun", new { StartDate = start, EndDate = end });
+        payRunRes.EnsureSuccessStatusCode();
+
+        var payRunResponse = await payRunRes.Content.ReadFromJsonAsync<PayRunResponseDTO>();
+
+        Assert.NotNull(payRunResponse);
+        // Code 500 deduction = $200
+        Assert.Equal(200m, payRunResponse.TotalCode500Deductions);
+        // CostShareAdjustedPayment = (1000 - 200) * 0.6 = 480
+        Assert.Equal(480m, payRunResponse.StatementTotals);
+        // Gross total reflects the normal payment amount only (takeback has $0 paymentAmount)
+        Assert.Equal(1000m, payRunResponse.GrossPaymentTotal);
+
+        // Verify statement-level numbers in the DB
+        var payRun = await db.PayRuns
+            .Include(p => p.Statements)
+            .FirstAsync(p => p.Id == payRunResponse.Id);
+
+        var statement = payRun.Statements.Single();
+        Assert.Equal(1000m, statement.TotalPayment);
+        Assert.Equal(480m, statement.CostShareAdjustedPayment);
+    }
+
+    private PaymentLineItem CreateCode500Payment(
+        Clinician clinician,
+        ImportBatch batch,
+        EHRUser ehrUser,
+        decimal adjustmentAmount,
+        DateTime dos,
+        DateTime appliedDate,
+        int row)
+    {
+        return PaymentLineItem.GeneratePaymentLineItem(
+            rawData: "raw-500",
+            clinician: clinician,
+            rawClinicianName: $"{clinician.FirstName} {clinician.LastName}",
+            paymentAmount: 0m,
+            adjustmentAmount: adjustmentAmount,
+            adjustmentCode: PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK,
+            dateOfService: dos,
+            patientId: Guid.NewGuid().ToString(),
+            cptCode: "90837",
+            paymentId: Guid.NewGuid().ToString(),
+            payer: "CIGNA",
+            appliedBy: ehrUser,
+            importBatch: batch,
+            rowNumber: row,
+            fingerprint: Guid.NewGuid().ToString(),
+            appliedDate: appliedDate,
+            paymentDate: appliedDate
+        );
     }
 }
