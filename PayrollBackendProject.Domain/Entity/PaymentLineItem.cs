@@ -26,8 +26,10 @@ namespace PayrollBackendProject.Domain.Entity
         public EHRUser AppliedBy { get; private set; } = null!;
         public Guid AppliedById { get; private set; }
 
-        public ImportBatch ImportBatch { get; private set; } = null!;
-        public Guid ImportBatchId { get; private set; }
+        public ImportBatch? ImportBatch { get; private set; }
+        public Guid? ImportBatchId { get; private set; }
+
+        public bool IsCode500Applied { get; private set; }
 
         public string Fingerprint { get; private set; } = string.Empty;
 
@@ -111,11 +113,83 @@ namespace PayrollBackendProject.Domain.Entity
             return item;
         }
 
+        public static PaymentLineItem GenerateManualPaymentLineItem(
+            string rawData,
+            Clinician? clinician,
+            string rawClinicianName,
+            decimal paymentAmount,
+            decimal adjustmentAmount,
+            PaymentAdjustmentCodeEnum adjustmentCode,
+            DateTime dateOfService,
+            string patientId,
+            string cptCode,
+            string paymentId,
+            string payer,
+            EHRUser appliedBy,
+            string fingerprint,
+            DateTime appliedDate,
+            DateTime? paymentDate)
+        {
+            if (appliedBy == null) throw new ArgumentNullException(nameof(appliedBy));
+            if (string.IsNullOrWhiteSpace(rawData))
+                throw new ArgumentException("Raw data cannot be empty or null");
+            if (string.IsNullOrWhiteSpace(fingerprint))
+                throw new ArgumentException("Fingerprint cannot be empty or null");
+
+            var item = new PaymentLineItem
+            {
+                Id = Guid.NewGuid(),
+                RawData = rawData,
+                PaymentAmount = paymentAmount,
+                AdjustmentAmount = adjustmentAmount,
+                PaymentAdjustmentCode = adjustmentCode,
+                DateOfService = dateOfService,
+                PatientId = patientId,
+                CPTCode = cptCode,
+                PaymentId = paymentId,
+                Payer = payer,
+                AppliedBy = appliedBy,
+                AppliedById = appliedBy.Id,
+                ImportBatch = null,
+                ImportBatchId = null,
+                Fingerprint = fingerprint,
+                RowNumber = 0,
+                AppliedDate = appliedDate,
+                PaymentDate = paymentDate,
+                RawClinicianName = rawClinicianName ?? string.Empty
+            };
+
+            if (clinician == null)
+            {
+                item.ClinicianId = null;
+                item.PaymentLineItemStatus = PaymentLineItemStatusEnum.UNRESOLVED_CLINICIAN;
+            }
+            else
+            {
+                item.ClinicianId = clinician.ID;
+                item.PaymentLineItemStatus = adjustmentCode == PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK
+                    ? PaymentLineItemStatusEnum.VALID
+                    : PaymentLineItemStatusEnum.VALID;
+            }
+
+            return item;
+        }
+
+        public void ApplyCode500()
+        {
+            if (PaymentAdjustmentCode != PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
+                throw new InvalidOperationException("Cannot apply a non-code-500 payment.");
+            if (IsCode500Applied)
+                throw new InvalidOperationException("This payment has already been applied.");
+            IsCode500Applied = true;
+            PaymentLineItemStatus = PaymentLineItemStatusEnum.VALID;
+        }
+
         public void UpdateClinician(Clinician clinician)
         {
             if (clinician == null)
             {
-                throw new ArgumentNullException("Clinician is null");   
+                throw new ArgumentNullException("Clinician is null");
             }
             ClinicianId = clinician.ID;
             PaymentLineItemStatus = PaymentLineItemStatusEnum.VALID;

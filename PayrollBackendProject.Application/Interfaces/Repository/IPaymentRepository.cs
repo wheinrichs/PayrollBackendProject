@@ -13,5 +13,7 @@ namespace PayrollBackendProject.Application.Interfaces.Repository
         public Task<List<PaymentLineItem>> GetPaymentBetweenDates(DateTime start, DateTime end);
         public Task<List<PaymentLineItem>> GetPaymentsFromBatch(Guid batchId);
         public Task<List<PaymentLineItem>> GetPaymentsWithUnresolvedClinician();
+        public Task<List<PaymentLineItem>> GetUnappliedCode500Payments();
+        public Task<PaymentLineItem?> GetPaymentLineItemById(Guid id);
     }
 }

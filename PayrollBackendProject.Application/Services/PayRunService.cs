@@ -45,6 +45,9 @@ namespace PayrollBackendProject.Application.Services
 
             // Gather all the payment line items, create a snapshot for each one, and assign them to a new pay run
             List<PaymentLineItem> payments = await _paymentRepo.GetPaymentBetweenDates(start, end);
+            payments = payments.Where(p =>
+                p.PaymentAdjustmentCode != Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK || p.IsCode500Applied
+            ).ToList();
             // TODO think about if this is the right behavior - right now you are filtering out payments that are in the system but have no clinician entity - is this right? Do we want to include these in the payrun?
             payments = payments.Where(p => p.ClinicianId != null).ToList();
             PayRun payRun = PayRun.GeneratePayRun(start, end);
