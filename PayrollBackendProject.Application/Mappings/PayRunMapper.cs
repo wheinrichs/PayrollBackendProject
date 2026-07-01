@@ -7,8 +7,11 @@ namespace PayrollBackendProject.Application.Mappings
     {
         public static (DateTime, DateTime) DTOToDates(PayRunRequestDTO dto)
         {
-            return (dto.StartDate.Date, dto.EndDate.Date);
-        } 
+            return (
+                DateTime.SpecifyKind(dto.StartDate.Date, DateTimeKind.Utc),
+                DateTime.SpecifyKind(dto.EndDate.Date, DateTimeKind.Utc)
+            );
+        }
 
         public static PayRunResponseDTO DomainToDTO(PayRun run)
         {
