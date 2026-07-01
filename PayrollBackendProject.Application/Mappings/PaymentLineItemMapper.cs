@@ -30,8 +30,8 @@ namespace PayrollBackendProject.Application.Mappings
                 NormalizeToUTCRequired(row.DOS),
                 row.PatientID,
                 row.CPT,
-                row.PaymentID ?? "",
-                row.Payer,
+                row.PaymentID ?? string.Empty,
+                row.Payer ?? string.Empty,
                 appliedBy,
                 importBatch,
                 rowNumber,
@@ -66,20 +66,20 @@ namespace PayrollBackendProject.Application.Mappings
                 throw new ArgumentException($"Invalid adjustment code: {dto.PaymentAdjustmentCode}");
 
             var codeEnum = (PaymentAdjustmentCodeEnum)dto.PaymentAdjustmentCode;
-            string rawData = $"MANUAL|{dto.PatientId}|{dto.CPTCode}|{dto.PaymentId}|{dto.DateOfService:O}";
+            string rawData = $"MANUAL|{dto.PatientId}|{dto.CPTCode}|{dto.PaymentId ?? string.Empty}|{dto.DateOfService:O}";
 
             return PaymentLineItem.GenerateManualPaymentLineItem(
                 rawData,
                 clinician,
                 dto.RawClinicianName,
-                dto.PaymentAmount,
-                dto.AdjustmentAmount,
+                dto.PaymentAmount ?? 0m,
+                dto.AdjustmentAmount ?? 0m,
                 codeEnum,
                 NormalizeToUTCRequired(dto.DateOfService),
                 dto.PatientId,
                 dto.CPTCode,
-                dto.PaymentId,
-                dto.Payer,
+                dto.PaymentId ?? string.Empty,
+                dto.Payer ?? string.Empty,
                 appliedBy,
                 fingerprint,
                 NormalizeToUTCRequired(dto.AppliedDate),

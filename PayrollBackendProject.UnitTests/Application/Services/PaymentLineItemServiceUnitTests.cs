@@ -63,7 +63,7 @@ public class PaymentLineItemServiceUnitTests
         var fingerprint = "fp-unique-001";
 
         _fingerprintGenerator
-            .Setup(f => f.ManualEntryComputeSHA256Async(dto.PatientId, dto.CPTCode, dto.PaymentId, dto.DateOfService, dto.PaymentAdjustmentCode))
+            .Setup(f => f.ManualEntryComputeSHA256Async(dto.PatientId, dto.CPTCode, dto.PaymentId!, dto.DateOfService, dto.PaymentAdjustmentCode))
             .ReturnsAsync(fingerprint);
         _paymentRepo.Setup(r => r.GetPaymentLineItem(fingerprint)).ReturnsAsync((PaymentLineItem?)null);
         SetupHappyPathUserResolution(userId);

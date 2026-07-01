@@ -111,7 +111,7 @@ namespace PayrollBackendProject.Application.Services
                             result.Errors.Add($"Failed to resolve clinician for line item {rowNumber}: Could not find corresponding clinician for {mappedRow.ClinicianName}");
                             unresolvedRows++;
                         }
-                        EHRUser appliedBy = FindAppliedByUser(mappedRow.AppliedBy, users);
+                        EHRUser appliedBy = FindAppliedByUser(mappedRow.AppliedBy ?? string.Empty, users);
                         PaymentLineItem domainLineItem = PaymentLineItemMapper.DtoToDomain(mappedRow, rawData, clinician, appliedBy, batch, rowNumber, lineItemFingerprint);
 
                         // Add to the repo
