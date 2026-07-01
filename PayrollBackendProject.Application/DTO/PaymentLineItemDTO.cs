@@ -49,5 +49,20 @@
         /// Gets or sets the date of service for this payment line item.
         /// </summary>
         public DateTime DateOfService { get; set; }
+
+        /// <summary>
+        /// Gets or sets the payer associated with this payment line item.
+        /// </summary>
+        public string? Payer { get; set; }
+
+        /// <summary>
+        /// Gets or sets the payment adjustment code as an integer value.
+        /// </summary>
+        public int AdjustmentCode { get; set; }
+
+        /// <summary>
+        /// Gets or sets the payment identifier from the source system.
+        /// </summary>
+        public string? PaymentId { get; set; }
     }
 }

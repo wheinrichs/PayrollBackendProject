@@ -47,15 +47,25 @@ namespace PayrollBackendProject.Application.DTO
         public decimal TotalAdjustment { get; private set; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PayStatementDTO"/> class.
+        /// Gets the clinician cost share percentage snapshotted at the time the statement was generated.
         /// </summary>
-        /// <param name="id">The unique identifier of the pay statement.</param>
-        /// <param name="clinician">The clinician associated with the statement.</param>
-        /// <param name="lineItems">The list of payment line items.</param>
-        /// <param name="payRun">The identifier of the associated pay run.</param>
-        /// <param name="totalPayment">The total payment before adjustments.</param>
-        /// <param name="costShareAdjustedPayment">The total payment after cost share adjustments.</param>
-        /// <param name="totalAdjustment">The total adjustment applied.</param>
+        public decimal CostShareSnapshot { get; private set; }
+
+        /// <summary>
+        /// Gets the approval state of this pay statement.
+        /// </summary>
+        public int ApprovalState { get; private set; }
+
+        /// <summary>
+        /// Gets the ID of the user who approved or rejected this statement, if any.
+        /// </summary>
+        public Guid? ApprovedRejectedBy { get; private set; }
+
+        /// <summary>
+        /// Gets the timestamp when this statement was approved or rejected, if any.
+        /// </summary>
+        public DateTime? ApprovedRejectedOn { get; private set; }
+
         public PayStatementDTO(
             Guid id,
             ClinicianResponseDTO clinician,
@@ -63,7 +73,11 @@ namespace PayrollBackendProject.Application.DTO
             Guid payRun,
             decimal totalPayment,
             decimal costShareAdjustedPayment,
-            decimal totalAdjustment)
+            decimal totalAdjustment,
+            decimal costShareSnapshot,
+            int approvalState,
+            Guid? approvedRejectedBy,
+            DateTime? approvedRejectedOn)
         {
             Id = id;
             Clinician = clinician;
@@ -72,6 +86,10 @@ namespace PayrollBackendProject.Application.DTO
             TotalPayment = totalPayment;
             CostShareAdjustedPayment = costShareAdjustedPayment;
             TotalAdjustment = totalAdjustment;
+            CostShareSnapshot = costShareSnapshot;
+            ApprovalState = approvalState;
+            ApprovedRejectedBy = approvedRejectedBy;
+            ApprovedRejectedOn = approvedRejectedOn;
         }
     }
 }
