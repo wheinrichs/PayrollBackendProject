@@ -39,5 +39,15 @@
         /// This may be null if patient information is unavailable or unresolved.
         /// </remarks>
         public string? PatientId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the raw clinician name as it appeared in the source data.
+        /// </summary>
+        public string? RawClinicianName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the date of service for this payment line item.
+        /// </summary>
+        public DateTime DateOfService { get; set; }
     }
 }

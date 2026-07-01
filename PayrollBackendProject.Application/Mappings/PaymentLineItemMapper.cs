@@ -125,7 +125,9 @@ namespace PayrollBackendProject.Application.Mappings
                 PaymentAmount = domainLineItem.PaymentAmount,
                 AdjustmentAmount = domainLineItem.AdjustmentAmount,
                 CPTCode = domainLineItem.CPTCode,
-                PatientId = domainLineItem.PatientId
+                PatientId = domainLineItem.PatientId,
+                RawClinicianName = domainLineItem.RawClinicianName,
+                DateOfService = domainLineItem.DateOfService
             };
         }
     }
