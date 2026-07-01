@@ -66,7 +66,7 @@ namespace PayrollBackendProject.Application.Services
                 throw new ArgumentException($"Invalid adjustment code: {dto.PaymentAdjustmentCode}");
 
             string fingerprint = await _fingerprintGenerator.ManualEntryComputeSHA256Async(
-                dto.PatientId, dto.CPTCode, dto.PaymentId, dto.DateOfService, dto.PaymentAdjustmentCode);
+                dto.PatientId, dto.CPTCode, dto.PaymentId ?? string.Empty, dto.DateOfService, dto.PaymentAdjustmentCode);
 
             PaymentLineItem? existing = await _paymentRepo.GetPaymentLineItem(fingerprint);
             if (existing != null)
