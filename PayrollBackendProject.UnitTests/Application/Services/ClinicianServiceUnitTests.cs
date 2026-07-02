@@ -172,4 +172,46 @@ public class ClinicianServiceUnitTests
 
         Assert.Null(result);
     }
+
+    /*
+    Test updating a clinician updates and returns the clinician if the clinician existed
+    */
+    [Fact]
+    public async Task UpdateClinician_ShouldUpdateAndReturnClinician_WhenExists()
+    {
+        var service = CreateService();
+
+        var existing = new Clinician("Old", "Name", "test@test.com");
+        var request = new ClinicianRequestDTO("New", "Name", "test@test.com", true, 0.5);
+
+        _repo.Setup(r => r.GetClinicianByID(existing.ID))
+             .ReturnsAsync(existing);
+
+        var result = await service.UpdateClinician(existing.ID, request);
+
+        Assert.NotNull(result);
+        Assert.Equal("New", result!.FirstName);
+        Assert.True(result.HasPsychToday);
+        Assert.Equal(0.5, result.CostShare);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    /*
+    Test updating a clinician returns null if the clinician does not exist
+    */
+    [Fact]
+    public async Task UpdateClinician_ShouldReturnNull_WhenNotExists()
+    {
+        var service = CreateService();
+
+        var request = new ClinicianRequestDTO("New", "Name", "test@test.com", true, 0.5);
+
+        _repo.Setup(r => r.GetClinicianByID(It.IsAny<Guid>()))
+             .ReturnsAsync((Clinician?)null);
+
+        var result = await service.UpdateClinician(Guid.NewGuid(), request);
+
+        Assert.Null(result);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
 }

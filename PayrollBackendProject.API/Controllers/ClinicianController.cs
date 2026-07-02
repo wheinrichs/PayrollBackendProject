@@ -94,6 +94,25 @@ namespace PayrollBackendProject.API.Controllers
         }
 
         /// <summary>
+        /// Updates an existing clinician's core information, such as cost share and Psych Today status.
+        /// </summary>
+        /// <param name="id">The unique ID of the clinician to update.</param>
+        /// <param name="updatedClinician">The updated clinician data.</param>
+        /// <returns>The updated clinician.</returns>
+        /// <response code="200">Returns the updated clinician.</response>
+        /// <response code="404">If the clinician is not found.</response>
+        [HttpPut("{id}")]
+        public async Task<ActionResult<ClinicianResponseDTO>> UpdateClinician(Guid id, ClinicianRequestDTO updatedClinician)
+        {
+            ClinicianResponseDTO? result = await _service.UpdateClinician(id, updatedClinician);
+            if (result == null)
+            {
+                return NotFound();
+            }
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Deletes a clinician by their unique identifier.
         /// </summary>
         /// <param name="id">The unique ID of the clinician to delete.</param>

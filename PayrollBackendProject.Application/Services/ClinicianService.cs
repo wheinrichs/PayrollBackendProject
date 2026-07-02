@@ -62,5 +62,22 @@ namespace PayrollBackendProject.Application.Services
             return returnClinician == null ? null : ClinicianMapper.DomainToDTO(returnClinician);
         }
 
+        public async Task<ClinicianResponseDTO?> UpdateClinician(Guid id, ClinicianRequestDTO updatedClinician)
+        {
+            Clinician? clinicianDomain = await _clinicianRepository.GetClinicianByID(id);
+            if (clinicianDomain == null)
+            {
+                return null;
+            }
+
+            clinicianDomain.UpdateCoreInformation(updatedClinician.FirstName,
+                updatedClinician.LastName,
+                updatedClinician.HasPsychToday,
+                updatedClinician.CostShare);
+
+            await _unitOfWork.SaveChangesAsync();
+            return ClinicianMapper.DomainToDTO(clinicianDomain);
+        }
+
     }
 }
