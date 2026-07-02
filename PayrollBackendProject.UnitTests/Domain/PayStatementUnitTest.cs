@@ -149,8 +149,57 @@ public class PayStatementUnitTests
 
         Assert.Equal(300, statement.TotalPayment);
         Assert.Equal(30, statement.TotalAdjustment);
+        Assert.Equal(0, statement.Code500Deductions);
         Assert.Equal(300 * (decimal)clinician.CostShare, statement.CostShareAdjustedPayment);
+        Assert.Equal(statement.CostShareAdjustedPayment, statement.TotalPayout);
         Assert.Equal(ApprovalStateEnum.PENDING, statement.ApprovalState);
+    }
+
+    /*
+    Test ApplyPsychTodayPayout sets the payout and feeds into TotalPayout once totals are calculated
+    */
+    [Fact]
+    public void ApplyPsychTodayPayout_ShouldSetPayout_AndFeedIntoTotalPayout()
+    {
+        var clinician = GetClinician();
+        var payRun = GetPayRun();
+        var statement = PayStatement.GenerateDraftPayStatement(clinician, payRun);
+
+        var snapshot = GetSnapshot(clinician, 100, 10);
+        statement.AddPaymentLineItem(snapshot);
+
+        statement.ApplyPsychTodayPayout(50m);
+        statement.CalculateTotals();
+
+        Assert.Equal(50m, statement.PsychTodayPayout);
+        Assert.Equal(statement.CostShareAdjustedPayment + 50m, statement.TotalPayout);
+    }
+
+    /*
+    Test ApplyPsychTodayPayout rejects non-positive amounts
+    */
+    [Fact]
+    public void ApplyPsychTodayPayout_ShouldThrow_WhenAmountNotPositive()
+    {
+        var clinician = GetClinician();
+        var payRun = GetPayRun();
+        var statement = PayStatement.GenerateDraftPayStatement(clinician, payRun);
+
+        Assert.Throws<ArgumentException>(() => statement.ApplyPsychTodayPayout(0m));
+        Assert.Throws<ArgumentException>(() => statement.ApplyPsychTodayPayout(-10m));
+    }
+
+    /*
+    Test ApplyPsychTodayPayout throws when the statement is no longer in draft
+    */
+    [Fact]
+    public void ApplyPsychTodayPayout_ShouldThrow_WhenNotDraft()
+    {
+        var statement = SetupPendingStatement();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            statement.ApplyPsychTodayPayout(50m)
+        );
     }
 
     /*

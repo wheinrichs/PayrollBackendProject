@@ -17,6 +17,9 @@ namespace PayrollBackendProject.Domain.Entity
         public decimal TotalPayment { get; private set; }
         public decimal CostShareAdjustedPayment { get; private set; }
         public decimal TotalAdjustment { get; private set; }
+        public decimal Code500Deductions { get; private set; }
+        public decimal PsychTodayPayout { get; private set; } = 0m;
+        public decimal TotalPayout { get; private set; }
         public ApprovalStateEnum ApprovalState { get; private set; }
         public Guid? ApprovedRejectedBy { get; private set; }
         public DateTime? ApprovedRejectedOn { get; private set; }
@@ -57,8 +60,23 @@ namespace PayrollBackendProject.Domain.Entity
                 .Where(p => p.AdjustmentCode == PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
                 .Sum(p => p.AdjustmentAmount);
 
-            CostShareAdjustedPayment = (TotalPayment - Math.Abs(code500Deductions)) * ClinicianCostShare;
+            Code500Deductions = Math.Abs(code500Deductions);
+            CostShareAdjustedPayment = (TotalPayment - Code500Deductions) * ClinicianCostShare;
+            TotalPayout = CostShareAdjustedPayment + PsychTodayPayout;
             ApprovalState = ApprovalStateEnum.PENDING;
+        }
+
+        public void ApplyPsychTodayPayout(decimal amount)
+        {
+            if (ApprovalState != ApprovalStateEnum.DRAFT)
+            {
+                throw new InvalidOperationException("Can only apply a Psych Today payout in the statement draft state.");
+            }
+            if (amount <= 0)
+            {
+                throw new ArgumentException("Psych Today payout amount must be greater than 0.");
+            }
+            PsychTodayPayout = amount;
         }
 
         public void Approve(UserAccount approver)

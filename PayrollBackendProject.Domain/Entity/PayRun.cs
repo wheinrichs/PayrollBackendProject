@@ -14,6 +14,8 @@ namespace PayrollBackendProject.Domain.Entity
         public List<PayStatement> Statements { get; private set; } = new();
         public List<PaymentSnapshot> Payments { get; private set; } = new();
         public Decimal StatementTotals { get; private set; }
+        public decimal TotalPsychTodayPayout { get; private set; } = 0.0m;
+        public decimal TotalPayout { get; private set; } = 0.0m;
 
         public PayRunStatusEnum GenerationStatus { get; set; } = PayRunStatusEnum.PENDING;
         public ApprovalStateEnum ApprovalState { get; private set; }
@@ -65,6 +67,8 @@ namespace PayrollBackendProject.Domain.Entity
                 .Where(p => p.AdjustmentCode == PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
                 .Sum(p => p.AdjustmentAmount));
             StatementTotals = Statements.Sum(s => s.CostShareAdjustedPayment);
+            TotalPsychTodayPayout = Statements.Sum(s => s.PsychTodayPayout);
+            TotalPayout = StatementTotals + TotalPsychTodayPayout;
             ApprovalState = ApprovalStateEnum.PENDING;
             GenerationStatus = PayRunStatusEnum.COMPLETED;
         }

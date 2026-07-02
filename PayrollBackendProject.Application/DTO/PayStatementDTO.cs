@@ -47,6 +47,21 @@ namespace PayrollBackendProject.Application.DTO
         public decimal TotalAdjustment { get; private set; }
 
         /// <summary>
+        /// Gets the total value of approved code-500 deductions applied to this statement.
+        /// </summary>
+        public decimal Code500Deductions { get; private set; }
+
+        /// <summary>
+        /// Gets the flat Psych Today payout applied to this statement, if any.
+        /// </summary>
+        public decimal PsychTodayPayout { get; private set; }
+
+        /// <summary>
+        /// Gets the combined total payout for this statement, including cost share adjustments and the Psych Today payout.
+        /// </summary>
+        public decimal TotalPayout { get; private set; }
+
+        /// <summary>
         /// Gets the clinician cost share percentage snapshotted at the time the statement was generated.
         /// </summary>
         public decimal CostShareSnapshot { get; private set; }
@@ -74,6 +89,9 @@ namespace PayrollBackendProject.Application.DTO
             decimal totalPayment,
             decimal costShareAdjustedPayment,
             decimal totalAdjustment,
+            decimal code500Deductions,
+            decimal psychTodayPayout,
+            decimal totalPayout,
             decimal costShareSnapshot,
             int approvalState,
             Guid? approvedRejectedBy,
@@ -86,6 +104,9 @@ namespace PayrollBackendProject.Application.DTO
             TotalPayment = totalPayment;
             CostShareAdjustedPayment = costShareAdjustedPayment;
             TotalAdjustment = totalAdjustment;
+            Code500Deductions = code500Deductions;
+            PsychTodayPayout = psychTodayPayout;
+            TotalPayout = totalPayout;
             CostShareSnapshot = costShareSnapshot;
             ApprovalState = approvalState;
             ApprovedRejectedBy = approvedRejectedBy;

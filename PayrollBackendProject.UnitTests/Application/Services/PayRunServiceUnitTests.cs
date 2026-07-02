@@ -326,6 +326,129 @@ public class PayRunServiceTests
         Assert.Equal(1000m, result.GrossPaymentTotal);
     }
 
+    /*
+    Validate that an eligible clinician (HasPsychToday) receives the flat Psych Today payout
+    when the flag is enabled, and that it's reflected in the run-level totals
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldAddPsychTodayPayout_ForEligibleClinician()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", true, 0.6);
+        var payment = GeneratePaymentLineItem(clinician, 500m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { payment });
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = DateTime.UtcNow,
+            IncludePsychTodayPayout = true,
+            PsychTodayPayoutAmount = 50m
+        };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        Assert.Equal(50m, result.TotalPsychTodayPayout);
+        Assert.Equal(result.StatementTotals + 50m, result.TotalPayout);
+    }
+
+    /*
+    Validate that a clinician not flagged HasPsychToday does not receive the payout,
+    even when the flag is enabled on the request
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldNotAddPsychTodayPayout_WhenClinicianNotFlagged()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", false, 0.6);
+        var payment = GeneratePaymentLineItem(clinician, 500m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { payment });
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = DateTime.UtcNow,
+            IncludePsychTodayPayout = true,
+            PsychTodayPayoutAmount = 50m
+        };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        Assert.Equal(0m, result.TotalPsychTodayPayout);
+        Assert.Equal(result.StatementTotals, result.TotalPayout);
+    }
+
+    /*
+    Validate that an eligible clinician does not receive the payout when the flag is disabled
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldNotAddPsychTodayPayout_WhenFlagDisabled()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", true, 0.6);
+        var payment = GeneratePaymentLineItem(clinician, 500m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { payment });
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = DateTime.UtcNow
+        };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        Assert.Equal(0m, result.TotalPsychTodayPayout);
+    }
+
+    /*
+    Validate that enabling the flag without a positive amount throws before any pay run is created
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldThrow_WhenPsychTodayPayoutEnabledWithoutAmount()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = DateTime.UtcNow,
+            IncludePsychTodayPayout = true,
+            PsychTodayPayoutAmount = null
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ExecutePayRun(request, userId));
+
+        _payRunRepo.Verify(r => r.AddPayRun(It.IsAny<PayRun>()), Times.Never);
+    }
+
     private PaymentLineItem GeneratePaymentLineItem(
         Clinician? clinician = null,
         decimal paymentAmount = 12.0m,

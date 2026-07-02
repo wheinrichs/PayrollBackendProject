@@ -44,18 +44,25 @@ namespace PayrollBackendProject.API.Controllers
         [HttpPost]
         public async Task<ActionResult<PayRunResponseDTO>> GeneratePayRun(PayRunRequestDTO payRunRequest)
         {
-            // Extract the current user ID from the authentication token
-            Guid currentUserGuid = TokenParser.RetrieveGuidFromToken(User);
-
-            // Execute the pay run generation process
-            PayRunResponseDTO response = await _service.ExecutePayRun(payRunRequest, currentUserGuid);
-
-            if (response == null)
+            try
             {
-                return BadRequest("Unable to generate pay run");
-            }
+                // Extract the current user ID from the authentication token
+                Guid currentUserGuid = TokenParser.RetrieveGuidFromToken(User);
 
-            return Ok(response);
+                // Execute the pay run generation process
+                PayRunResponseDTO response = await _service.ExecutePayRun(payRunRequest, currentUserGuid);
+
+                if (response == null)
+                {
+                    return BadRequest("Unable to generate pay run");
+                }
+
+                return Ok(response);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>

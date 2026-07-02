@@ -55,7 +55,7 @@ public class PayrollCalculatorUnitTests
             GetSnapshot(clinician, 200, 20)
         };
 
-        var statement = calculator.GeneratePayroll(snapshots, clinician, payRun);
+        var statement = calculator.GeneratePayroll(snapshots, clinician, payRun, false, 0m);
 
         Assert.Equal(2, statement.LineItems.Count);
         Assert.Equal(300, statement.TotalPayment);
@@ -88,7 +88,7 @@ public class PayrollCalculatorUnitTests
         };
 
         Assert.Throws<InvalidOperationException>(() =>
-            calculator.GeneratePayroll(snapshots, clinician, payRun)
+            calculator.GeneratePayroll(snapshots, clinician, payRun, false, 0m)
         );
     }
 
@@ -103,11 +103,67 @@ public class PayrollCalculatorUnitTests
         var clinician = GetClinician();
         var payRun = GetPayRun();
 
-        var statement = calculator.GeneratePayroll(new List<PaymentSnapshot>(), clinician, payRun);
+        var statement = calculator.GeneratePayroll(new List<PaymentSnapshot>(), clinician, payRun, false, 0m);
 
         Assert.Empty(statement.LineItems);
         Assert.Equal(0, statement.TotalPayment);
         Assert.Equal(0, statement.TotalAdjustment);
         Assert.Equal(ApprovalStateEnum.PENDING, statement.ApprovalState);
+    }
+
+    /*
+    Test that an eligible clinician (HasPsychToday) receives the flat payout when the flag is enabled
+    */
+    [Fact]
+    public void GeneratePayroll_ShouldApplyPsychTodayPayout_WhenClinicianEligibleAndFlagEnabled()
+    {
+        var calculator = new PayrollCalculator();
+
+        var clinician = new Clinician("John", "Doe", "john@test.com", true, 0.5);
+        var payRun = GetPayRun();
+
+        var snapshots = new List<PaymentSnapshot> { GetSnapshot(clinician, 100, 10) };
+
+        var statement = calculator.GeneratePayroll(snapshots, clinician, payRun, true, 50m);
+
+        Assert.Equal(50m, statement.PsychTodayPayout);
+        Assert.Equal(statement.CostShareAdjustedPayment + 50m, statement.TotalPayout);
+    }
+
+    /*
+    Test that a non-eligible clinician (HasPsychToday false) does not receive the payout even when the flag is enabled
+    */
+    [Fact]
+    public void GeneratePayroll_ShouldNotApplyPsychTodayPayout_WhenClinicianNotEligible()
+    {
+        var calculator = new PayrollCalculator();
+
+        var clinician = GetClinician(); // HasPsychToday = false
+        var payRun = GetPayRun();
+
+        var snapshots = new List<PaymentSnapshot> { GetSnapshot(clinician, 100, 10) };
+
+        var statement = calculator.GeneratePayroll(snapshots, clinician, payRun, true, 50m);
+
+        Assert.Equal(0m, statement.PsychTodayPayout);
+        Assert.Equal(statement.CostShareAdjustedPayment, statement.TotalPayout);
+    }
+
+    /*
+    Test that an eligible clinician does not receive the payout when the flag is disabled
+    */
+    [Fact]
+    public void GeneratePayroll_ShouldNotApplyPsychTodayPayout_WhenFlagDisabled()
+    {
+        var calculator = new PayrollCalculator();
+
+        var clinician = new Clinician("John", "Doe", "john@test.com", true, 0.5);
+        var payRun = GetPayRun();
+
+        var snapshots = new List<PaymentSnapshot> { GetSnapshot(clinician, 100, 10) };
+
+        var statement = calculator.GeneratePayroll(snapshots, clinician, payRun, false, 50m);
+
+        Assert.Equal(0m, statement.PsychTodayPayout);
     }
 }

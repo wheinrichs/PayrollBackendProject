@@ -41,6 +41,11 @@ namespace PayrollBackendProject.Application.Services
          
         public async Task<PayRunResponseDTO> ExecutePayRun(PayRunRequestDTO request, Guid userId)
         {
+            if (request.IncludePsychTodayPayout && (!request.PsychTodayPayoutAmount.HasValue || request.PsychTodayPayoutAmount <= 0))
+            {
+                throw new ArgumentException("Psych Today payout amount must be greater than 0 when Psych Today payout is enabled.");
+            }
+
             var (start, end) = PayRunMapper.DTOToDates(request);
 
             // Gather all the payment line items, create a snapshot for each one, and assign them to a new pay run
@@ -82,7 +87,9 @@ namespace PayrollBackendProject.Application.Services
                 Clinician clinician = clinicianMap[clinicianId];
 
                 // Generate a statement for each clinician
-                PayStatement statement = _calculator.GeneratePayroll(clinicianGroup.ToList(), clinician, payRun);
+                PayStatement statement = _calculator.GeneratePayroll(
+                    clinicianGroup.ToList(), clinician, payRun,
+                    request.IncludePsychTodayPayout, request.PsychTodayPayoutAmount ?? 0m);
 
                 // Log the created pay statement
                 string newStatementLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(statement, statement.PayRunId));

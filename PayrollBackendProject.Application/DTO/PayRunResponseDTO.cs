@@ -48,9 +48,19 @@ namespace PayrollBackendProject.Application.DTO
         public decimal TotalCode500Deductions { get; private set; }
 
         /// <summary>
-        /// Gets the net payout to all clinicians after cost share and code-500 deductions.
+        /// Gets the net payout to all clinicians after cost share and code-500 deductions, before any Psych Today payout.
         /// </summary>
         public decimal StatementTotals { get; private set; }
+
+        /// <summary>
+        /// Gets the total flat Psych Today payout amount across all eligible clinicians in this pay run.
+        /// </summary>
+        public decimal TotalPsychTodayPayout { get; private set; }
+
+        /// <summary>
+        /// Gets the combined total payout to all clinicians, including cost share adjustments and the Psych Today payout.
+        /// </summary>
+        public decimal TotalPayout { get; private set; }
 
         /// <summary>
         /// Gets the current generation status of the pay run.
@@ -95,6 +105,8 @@ namespace PayrollBackendProject.Application.DTO
         /// <param name="statementTotals">The net payout to all clinicians after cost share and deductions.</param>
         /// <param name="grossPaymentTotal">The gross payment total before cost share and code-500 deductions.</param>
         /// <param name="totalCode500Deductions">The total value of approved code-500 deductions.</param>
+        /// <param name="totalPsychTodayPayout">The total flat Psych Today payout across all eligible clinicians.</param>
+        /// <param name="totalPayout">The combined total payout, including cost share adjustments and the Psych Today payout.</param>
         /// <param name="generationStatus">The current generation status of the pay run.</param>
         /// <param name="approvalStatus">The approval status of the pay run.</param>
         /// <param name="approvedRejectedBy">The user who approved or rejected the pay run.</param>
@@ -108,6 +120,8 @@ namespace PayrollBackendProject.Application.DTO
             decimal grossPaymentTotal,
             decimal totalCode500Deductions,
             decimal statementTotals,
+            decimal totalPsychTodayPayout,
+            decimal totalPayout,
             PayRunStatusEnum generationStatus,
             ApprovalStateEnum approvalStatus,
             Guid? approvedRejectedBy,
@@ -121,6 +135,8 @@ namespace PayrollBackendProject.Application.DTO
             GrossPaymentTotal = grossPaymentTotal;
             TotalCode500Deductions = totalCode500Deductions;
             StatementTotals = statementTotals;
+            TotalPsychTodayPayout = totalPsychTodayPayout;
+            TotalPayout = totalPayout;
             GenerationStatus = generationStatus;
             ApprovalStatus = approvalStatus;
             ApprovedRejectedBy = approvedRejectedBy;

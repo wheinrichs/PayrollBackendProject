@@ -125,8 +125,31 @@ public class PayRunUnitTests
 
         Assert.Equal(300, payRun.TotalApplied);
         Assert.Equal(30, payRun.TotalAdjudicated);
+        Assert.Equal(0, payRun.TotalPsychTodayPayout);
+        Assert.Equal(payRun.StatementTotals, payRun.TotalPayout);
         Assert.Equal(ApprovalStateEnum.PENDING, payRun.ApprovalState);
         Assert.Equal(PayRunStatusEnum.COMPLETED, payRun.GenerationStatus);
+    }
+
+    /*
+    Test CalculateTotals sums each statement's Psych Today payout into the run-level total and includes it in TotalPayout
+    */
+    [Fact]
+    public void CalculateTotals_ShouldSumPsychTodayPayoutAcrossStatements()
+    {
+        var payRun = GetDraftPayRun();
+        payRun.AssignPayments(new List<PaymentSnapshot>());
+
+        var clinician = new Clinician("John", "Doe", "john@test.com", true, 0.5);
+        var statement = PayStatement.GenerateDraftPayStatement(clinician, payRun);
+        statement.ApplyPsychTodayPayout(50m);
+        statement.CalculateTotals();
+        payRun.Statements.Add(statement);
+
+        payRun.CalculateTotals();
+
+        Assert.Equal(50m, payRun.TotalPsychTodayPayout);
+        Assert.Equal(payRun.StatementTotals + 50m, payRun.TotalPayout);
     }
 
     /*

@@ -524,6 +524,93 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         Assert.Equal(480m, statement.CostShareAdjustedPayment);
     }
 
+    /*
+    Validate that generating a pay run with IncludePsychTodayPayout enabled adds the flat payout
+    only to eligible (HasPsychToday) clinicians, and reports it as a separate total on the response
+    */
+    [Fact]
+    public async Task GeneratePayRun_WithPsychTodayPayoutEnabled_AddsPayoutForEligibleCliniciansOnly()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var eligibleClinician = new Clinician("C8", "Eligible", $"c8_{Guid.NewGuid()}@test.com", true, 0.6);
+        var ineligibleClinician = new Clinician("C9", "Ineligible", $"c9_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.AddRange(eligibleClinician, ineligibleClinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use August 2024 — an isolated month not used by any other test's pay run range
+        var dos = new DateTime(2024, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inRange = new DateTime(2024, 8, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        db.PaymentLineItems.AddRange(
+            CreatePayment(eligibleClinician, batch, ehrUser, 500m, dos, inRange, 1),
+            CreatePayment(ineligibleClinician, batch, ehrUser, 500m, dos, inRange, 2)
+        );
+
+        await db.SaveChangesAsync();
+
+        var start = new DateTime(2024, 8, 1);
+        var end = new DateTime(2024, 8, 31);
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = start,
+            EndDate = end,
+            IncludePsychTodayPayout = true,
+            PsychTodayPayoutAmount = 75m
+        });
+        res.EnsureSuccessStatusCode();
+
+        var payRunResponse = await res.Content.ReadFromJsonAsync<PayRunResponseDTO>();
+
+        Assert.NotNull(payRunResponse);
+        // Only the one eligible clinician received the payout
+        Assert.Equal(75m, payRunResponse.TotalPsychTodayPayout);
+        Assert.Equal(payRunResponse.StatementTotals + 75m, payRunResponse.TotalPayout);
+
+        var payRun = await db.PayRuns
+            .Include(p => p.Statements)
+            .FirstAsync(p => p.Id == payRunResponse.Id);
+
+        var eligibleStatement = payRun.Statements.Single(s => s.ClinicianId == eligibleClinician.ID);
+        var ineligibleStatement = payRun.Statements.Single(s => s.ClinicianId == ineligibleClinician.ID);
+
+        Assert.Equal(75m, eligibleStatement.PsychTodayPayout);
+        Assert.Equal(eligibleStatement.CostShareAdjustedPayment + 75m, eligibleStatement.TotalPayout);
+        Assert.Equal(0m, ineligibleStatement.PsychTodayPayout);
+        Assert.Equal(ineligibleStatement.CostShareAdjustedPayment, ineligibleStatement.TotalPayout);
+    }
+
+    /*
+    Validate that enabling the Psych Today payout flag without a positive amount returns a 400
+    */
+    [Fact]
+    public async Task GeneratePayRun_WithPsychTodayPayoutEnabled_NoAmount_ReturnsBadRequest()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = new DateTime(2024, 8, 1),
+            EndDate = new DateTime(2024, 8, 31),
+            IncludePsychTodayPayout = true
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
     private PaymentLineItem CreateCode500Payment(
         Clinician clinician,
         ImportBatch batch,

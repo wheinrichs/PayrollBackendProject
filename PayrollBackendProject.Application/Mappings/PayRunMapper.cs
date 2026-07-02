@@ -19,7 +19,7 @@ namespace PayrollBackendProject.Application.Mappings
                 run.Id, run.StartDate, run.EndDate,
                 run.TotalApplied, run.TotalAdjudicated,
                 run.GrossPaymentTotal, run.TotalCode500Deductions,
-                run.StatementTotals,
+                run.StatementTotals, run.TotalPsychTodayPayout, run.TotalPayout,
                 run.GenerationStatus, run.ApprovalState,
                 run.ApprovedRejectedBy, run.ApprovedRejectedOn);
         }
