@@ -14,6 +14,7 @@ namespace PayrollBackendProject.Infrastructure.Data
         public DbSet<PayStatement> PayStatements { get; set; }
         public DbSet<PaymentSnapshot> PaymentSnapshots { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Code500Application> Code500Applications { get; set; }
 
         public ClinicianDbContext(DbContextOptions options) : base(options)
         {
@@ -34,6 +35,18 @@ namespace PayrollBackendProject.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(p => p.ImportBatchId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Code500Application>()
+                .HasOne(a => a.PaymentLineItem)
+                .WithMany(p => p.Code500Applications)
+                .HasForeignKey(a => a.PaymentLineItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Code500Application>()
+                .HasOne(a => a.PayRun)
+                .WithMany()
+                .HasForeignKey(a => a.PayRunId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

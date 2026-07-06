@@ -391,7 +391,8 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 
         // One already-applied takeback (should NOT appear)
         var appliedTakeback = CreateCode500Payment(clinician, batch, ehrUser, -100m, dos, applied, 2);
-        appliedTakeback.ApplyCode500();
+        var dummyPayRun = PayRun.GeneratePayRun(applied.AddDays(-1), applied);
+        appliedTakeback.ApplyCode500(100m, Guid.NewGuid(), dummyPayRun);
 
         // One regular payment (should NOT appear)
         var regularPayment = CreatePayment(clinician, batch, ehrUser, 500m, dos, applied, 3);
@@ -461,11 +462,11 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
     }
 
     /*
-    Full end-to-end: apply a code 500 via the API endpoint, then generate a pay run and verify
+    Full end-to-end: request a code 500 application as part of generating a pay run and verify
     the statement's cost-share-adjusted amount is reduced and TotalCode500Deductions is correct
     */
     [Fact]
-    public async Task ApplyCode500_ThenGeneratePayRun_ReducesStatementAmount_AndReportsDeductions()
+    public async Task GeneratePayRun_WithCode500Application_ReducesStatementAmount_AndReportsDeductions()
     {
         var db = await ResetDb();
 
@@ -487,21 +488,22 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
 
         // Normal payment: $1000
         var normalPayment = CreatePayment(clinician, batch, ehrUser, 1000m, dos, inRange, 1);
-        // Unapplied code 500 takeback: -$200
+        // Outstanding code 500 takeback: -$200
         var takeback = CreateCode500Payment(clinician, batch, ehrUser, -200m, dos, inRange, 2);
 
         db.PaymentLineItems.AddRange(normalPayment, takeback);
         await db.SaveChangesAsync();
 
-        // Apply the code 500 via API
-        var applyRes = await _client.PostAsync($"/api/payments/takebacks/{takeback.Id}/apply", null);
-        Assert.Equal(System.Net.HttpStatusCode.NoContent, applyRes.StatusCode);
-
-        // Generate the pay run (both payments are now included)
+        // Generate the pay run, requesting the full $200 balance be applied to this run
         var start = new DateTime(2024, 7, 1);
         var end = new DateTime(2024, 7, 31);
 
-        var payRunRes = await _client.PostAsJsonAsync("/api/payrun", new { StartDate = start, EndDate = end });
+        var payRunRes = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = start,
+            EndDate = end,
+            Code500Applications = new[] { new { PaymentLineItemId = takeback.Id, Amount = 200m } }
+        });
         payRunRes.EnsureSuccessStatusCode();
 
         var payRunResponse = await payRunRes.Content.ReadFromJsonAsync<PayRunResponseDTO>();
@@ -522,6 +524,140 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         var statement = payRun.Statements.Single();
         Assert.Equal(1000m, statement.TotalPayment);
         Assert.Equal(480m, statement.CostShareAdjustedPayment);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var freshDb = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+            var updatedTakeback = await freshDb.PaymentLineItems.FirstAsync(p => p.Id == takeback.Id);
+            Assert.True(updatedTakeback.IsCode500Applied);
+            Assert.Equal(0m, updatedTakeback.RemainingCode500Amount);
+        }
+    }
+
+    /*
+    Validate that applying only part of an outstanding code 500 balance to a pay run deducts only
+    that amount, leaves a remaining balance visible in the pending-takebacks queue, and that a
+    later pay run can apply the remainder with no double count
+    */
+    [Fact]
+    public async Task GeneratePayRun_WithPartialCode500Application_CarriesRemainderToFuturePayRun()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C10", "Test", $"c10_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use September and October 2024 — isolated months not used by any other test's pay run range
+        var septDos = new DateTime(2024, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var septInRange = new DateTime(2024, 9, 15, 0, 0, 0, DateTimeKind.Utc);
+        var octDos = new DateTime(2024, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var octInRange = new DateTime(2024, 10, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        var septPayment = CreatePayment(clinician, batch, ehrUser, 1000m, septDos, septInRange, 1);
+        var octPayment = CreatePayment(clinician, batch, ehrUser, 1000m, octDos, octInRange, 2);
+        // Outstanding code 500 takeback: -$200, too large to fully take out of the September run
+        var takeback = CreateCode500Payment(clinician, batch, ehrUser, -200m, septDos, septInRange, 3);
+
+        db.PaymentLineItems.AddRange(septPayment, octPayment, takeback);
+        await db.SaveChangesAsync();
+
+        // First pay run: apply only $50 of the $200 balance
+        var firstRes = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = new DateTime(2024, 9, 1),
+            EndDate = new DateTime(2024, 9, 30),
+            Code500Applications = new[] { new { PaymentLineItemId = takeback.Id, Amount = 50m } }
+        });
+        firstRes.EnsureSuccessStatusCode();
+        var firstPayRun = await firstRes.Content.ReadFromJsonAsync<PayRunResponseDTO>();
+
+        Assert.Equal(50m, firstPayRun!.TotalCode500Deductions);
+
+        // The remaining $150 balance is still visible in the pending-takebacks queue
+        var pendingRes = await _client.GetAsync("/api/payments/takebacks/pending");
+        pendingRes.EnsureSuccessStatusCode();
+        var pending = await pendingRes.Content.ReadFromJsonAsync<List<UnappliedCode500ResponseDTO>>();
+        var pendingEntry = pending!.Single(p => p.Id == takeback.Id);
+        Assert.Equal(150m, pendingEntry.RemainingAmount);
+        Assert.Equal(50m, pendingEntry.AppliedAmount);
+
+        // Second pay run (October): apply the remaining $150
+        var secondRes = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = new DateTime(2024, 10, 1),
+            EndDate = new DateTime(2024, 10, 31),
+            Code500Applications = new[] { new { PaymentLineItemId = takeback.Id, Amount = 150m } }
+        });
+        secondRes.EnsureSuccessStatusCode();
+        var secondPayRun = await secondRes.Content.ReadFromJsonAsync<PayRunResponseDTO>();
+
+        Assert.Equal(150m, secondPayRun!.TotalCode500Deductions);
+
+        // No double count: the two runs' deductions sum to the original $200 balance
+        Assert.Equal(200m, firstPayRun.TotalCode500Deductions + secondPayRun.TotalCode500Deductions);
+
+        // The line item is now fully applied and no longer in the pending queue
+        var finalPendingRes = await _client.GetAsync("/api/payments/takebacks/pending");
+        var finalPending = await finalPendingRes.Content.ReadFromJsonAsync<List<UnappliedCode500ResponseDTO>>();
+        Assert.DoesNotContain(finalPending!, p => p.Id == takeback.Id);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var freshDb = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+            var updatedTakeback = await freshDb.PaymentLineItems.FirstAsync(p => p.Id == takeback.Id);
+            Assert.True(updatedTakeback.IsCode500Applied);
+        }
+    }
+
+    /*
+    Validate that requesting more than the remaining outstanding code 500 balance returns a 400
+    and does not persist a pay run
+    */
+    [Fact]
+    public async Task GeneratePayRun_WithCode500ApplicationExceedingBalance_ReturnsBadRequest()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C11", "Test", $"c11_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use November 2024 — an isolated month not used by any other test's pay run range
+        var dos = new DateTime(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inRange = new DateTime(2024, 11, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        var takeback = CreateCode500Payment(clinician, batch, ehrUser, -200m, dos, inRange, 1);
+        db.PaymentLineItems.Add(takeback);
+        await db.SaveChangesAsync();
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = new DateTime(2024, 11, 1),
+            EndDate = new DateTime(2024, 11, 30),
+            Code500Applications = new[] { new { PaymentLineItemId = takeback.Id, Amount = 500m } }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+
+        var payRunCount = await db.PayRuns.CountAsync(p => p.Statements.Any(s => s.ClinicianId == clinician.ID));
+        Assert.Equal(0, payRunCount);
     }
 
     /*
@@ -587,6 +723,76 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         Assert.Equal(eligibleStatement.CostShareAdjustedPayment + 75m, eligibleStatement.TotalPayout);
         Assert.Equal(0m, ineligibleStatement.PsychTodayPayout);
         Assert.Equal(ineligibleStatement.CostShareAdjustedPayment, ineligibleStatement.TotalPayout);
+    }
+
+    /*
+    Validate that a new pay run cannot start on or before the end date of an existing pay run -
+    e.g. an existing run of 6/15-6/22 blocks a new run starting on 6/22, but 6/23 is allowed
+    */
+    [Fact]
+    public async Task GeneratePayRun_RejectsOverlap_AtInclusiveBoundary_ButAllowsDayAfter()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C12", "Test", $"c12_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Isolated historical range so this test's dates don't collide with other tests' pay runs
+        var existingStart = new DateTime(2020, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+        var existingEnd = new DateTime(2020, 6, 22, 0, 0, 0, DateTimeKind.Utc);
+
+        db.PaymentLineItems.Add(CreatePayment(clinician, batch, ehrUser, 100m, existingStart, existingStart, 1));
+        await db.SaveChangesAsync();
+
+        var firstRun = await _client.PostAsJsonAsync("/api/payrun",
+            new { StartDate = existingStart, EndDate = existingEnd });
+        firstRun.EnsureSuccessStatusCode();
+
+        // Starting the new run on the existing run's end date should be rejected
+        var overlapping = await _client.PostAsJsonAsync("/api/payrun",
+            new { StartDate = existingEnd, EndDate = existingEnd.AddDays(5) });
+        Assert.Equal(HttpStatusCode.BadRequest, overlapping.StatusCode);
+
+        // Starting the day after the existing run's end date should be allowed
+        var nonOverlapping = await _client.PostAsJsonAsync("/api/payrun",
+            new { StartDate = existingEnd.AddDays(1), EndDate = existingEnd.AddDays(5) });
+        Assert.Equal(HttpStatusCode.OK, nonOverlapping.StatusCode);
+    }
+
+    /*
+    Validate that a pay run whose generation failed, or whose approval was rejected, does not
+    block a new pay run from being generated over the same date range
+    */
+    [Fact]
+    public async Task GeneratePayRun_AllowsRetry_OverRangeOfFailedOrRejectedPayRun()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        // Isolated historical range so this test's dates don't collide with other tests' pay runs
+        var start = new DateTime(2021, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = new DateTime(2021, 9, 10, 0, 0, 0, DateTimeKind.Utc);
+
+        var failedPayRun = PayRun.GeneratePayRun(start, end);
+        failedPayRun.GenerationStatus = PayRunStatusEnum.FAILED;
+        db.PayRuns.Add(failedPayRun);
+        await db.SaveChangesAsync();
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new { StartDate = start, EndDate = end });
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 
     /*

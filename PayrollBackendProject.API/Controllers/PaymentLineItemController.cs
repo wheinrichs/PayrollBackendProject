@@ -25,25 +25,6 @@ namespace PayrollBackendProject.API.Controllers
             return Ok(result);
         }
 
-        [HttpPost("takebacks/{id}/apply")]
-        public async Task<ActionResult> ApplyCode500Payment(Guid id)
-        {
-            try
-            {
-                Guid userId = TokenParser.RetrieveGuidFromToken(User);
-                await _service.ApplyCode500Payment(id, userId);
-                return NoContent();
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
         [HttpPost("manual")]
         public async Task<ActionResult<Guid>> AddManualPayment([FromBody] ManualPaymentRequestDTO request)
         {

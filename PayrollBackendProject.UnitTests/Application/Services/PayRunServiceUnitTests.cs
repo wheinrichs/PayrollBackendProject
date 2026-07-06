@@ -22,6 +22,10 @@ public class PayRunServiceTests
 
     private PayRunService CreateService()
     {
+        _payRunRepo
+            .Setup(r => r.GetOverlappingPayRuns(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PayRun>());
+
         return new PayRunService(
             _paymentRepo.Object,
             _unitOfWork.Object,
@@ -306,17 +310,28 @@ public class PayRunServiceTests
 
         var normalPayment = GeneratePaymentLineItem(clinician, 1000m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
         var appliedTakeback = GeneratePaymentLineItem(clinician, 0m, -200m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK);
-        appliedTakeback.ApplyCode500();
 
         _paymentRepo
             .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync(new List<PaymentLineItem> { normalPayment, appliedTakeback });
 
+        _paymentRepo
+            .Setup(r => r.GetPaymentLineItemById(appliedTakeback.Id))
+            .ReturnsAsync(appliedTakeback);
+
         _clinicianRepo
             .Setup(r => r.GetAllClinicians())
             .ReturnsAsync(new List<Clinician> { clinician });
 
-        var request = new PayRunRequestDTO { StartDate = DateTime.UtcNow.AddDays(-7), EndDate = DateTime.UtcNow };
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-7),
+            EndDate = DateTime.UtcNow,
+            Code500Applications = new List<Code500ApplicationRequestDTO>
+            {
+                new() { PaymentLineItemId = appliedTakeback.Id, Amount = 200m }
+            }
+        };
 
         var result = await service.ExecutePayRun(request, userId);
 
@@ -324,6 +339,125 @@ public class PayRunServiceTests
         Assert.Equal(480m, result.StatementTotals);
         Assert.Equal(200m, result.TotalCode500Deductions);
         Assert.Equal(1000m, result.GrossPaymentTotal);
+        Assert.True(appliedTakeback.IsCode500Applied);
+    }
+
+    /*
+    Validate that applying only part of an outstanding code 500 balance to a pay run deducts
+    only that amount, and leaves the remainder outstanding on the line item
+    */
+    [Fact]
+    public async Task ExecutePayRun_WithPartialCode500Application_ShouldApplyOnlyRequestedAmount()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", false, 0.6);
+
+        var normalPayment = GeneratePaymentLineItem(clinician, 1000m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT);
+        var takeback = GeneratePaymentLineItem(clinician, 0m, -200m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { normalPayment, takeback });
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentLineItemById(takeback.Id))
+            .ReturnsAsync(takeback);
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-7),
+            EndDate = DateTime.UtcNow,
+            Code500Applications = new List<Code500ApplicationRequestDTO>
+            {
+                new() { PaymentLineItemId = takeback.Id, Amount = 50m }
+            }
+        };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        Assert.Equal(50m, result.TotalCode500Deductions);
+        Assert.Equal(150m, takeback.RemainingCode500Amount);
+        Assert.False(takeback.IsCode500Applied);
+    }
+
+    /*
+    Validate that requesting more than the remaining outstanding balance for a code 500
+    application throws before any pay run is persisted
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldThrow_WhenCode500ApplicationExceedsRemainingBalance()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com", false, 0.6);
+        var takeback = GeneratePaymentLineItem(clinician, 0m, -200m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem>());
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentLineItemById(takeback.Id))
+            .ReturnsAsync(takeback);
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-7),
+            EndDate = DateTime.UtcNow,
+            Code500Applications = new List<Code500ApplicationRequestDTO>
+            {
+                new() { PaymentLineItemId = takeback.Id, Amount = 500m }
+            }
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ExecutePayRun(request, userId));
+        _payRunRepo.Verify(r => r.AddPayRun(It.IsAny<PayRun>()), Times.Never);
+    }
+
+    /*
+    Validate that referencing a non-existent payment line item in a code 500 application
+    throws KeyNotFoundException
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldThrow_WhenCode500LineItemNotFound()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem>());
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentLineItemById(It.IsAny<Guid>()))
+            .ReturnsAsync((PaymentLineItem?)null);
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician>());
+
+        var request = new PayRunRequestDTO
+        {
+            StartDate = DateTime.UtcNow.AddDays(-7),
+            EndDate = DateTime.UtcNow,
+            Code500Applications = new List<Code500ApplicationRequestDTO>
+            {
+                new() { PaymentLineItemId = Guid.NewGuid(), Amount = 50m }
+            }
+        };
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ExecutePayRun(request, userId));
     }
 
     /*
@@ -425,6 +559,30 @@ public class PayRunServiceTests
         var result = await service.ExecutePayRun(request, userId);
 
         Assert.Equal(0m, result.TotalPsychTodayPayout);
+    }
+
+    /*
+    Validate that a pay run date range overlapping an existing pay run is rejected before
+    any payments are gathered or a new pay run is persisted
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldThrow_WhenDateRangeOverlapsExistingPayRun()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var existingPayRun = PayRun.GeneratePayRun(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow.AddDays(-3));
+
+        _payRunRepo
+            .Setup(r => r.GetOverlappingPayRuns(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PayRun> { existingPayRun });
+
+        var request = new PayRunRequestDTO { StartDate = DateTime.UtcNow.AddDays(-5), EndDate = DateTime.UtcNow };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ExecutePayRun(request, userId));
+
+        _payRunRepo.Verify(r => r.AddPayRun(It.IsAny<PayRun>()), Times.Never);
+        _paymentRepo.Verify(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Never);
     }
 
     /*

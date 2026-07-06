@@ -15,5 +15,7 @@ namespace PayrollBackendProject.Application.Interfaces.Repository
         public Task<List<PaymentLineItem>> GetPaymentsWithUnresolvedClinician();
         public Task<List<PaymentLineItem>> GetUnappliedCode500Payments();
         public Task<PaymentLineItem?> GetPaymentLineItemById(Guid id);
+        public Task<List<Code500Application>> GetCode500ApplicationsBetweenDates(DateTime start, DateTime end);
+        public void AddCode500Application(Code500Application application);
     }
 }

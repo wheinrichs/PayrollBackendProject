@@ -43,23 +43,6 @@ namespace PayrollBackendProject.Application.Services
             return items.Select(PaymentLineItemMapper.DomainToUnappliedCode500DTO).ToList();
         }
 
-        public async Task ApplyCode500Payment(Guid paymentId, Guid userId)
-        {
-            PaymentLineItem? payment = await _paymentRepo.GetPaymentLineItemById(paymentId);
-            if (payment == null)
-                throw new KeyNotFoundException($"Payment with ID {paymentId} not found.");
-
-            string oldState = JsonSerializer.Serialize(PaymentLineItemMapper.DomainToDto(payment));
-
-            payment.ApplyCode500();
-
-            string newState = JsonSerializer.Serialize(PaymentLineItemMapper.DomainToDto(payment));
-            AuditLog log = new("Payment Line Item", payment.Id, AuditLogActionEnum.UPDATED, oldState, newState, userId.ToString());
-            await _auditLogRepo.AddAuditLog(log);
-
-            await _unitOfWork.SaveChangesAsync();
-        }
-
         public async Task<Guid> AddManualPayment(ManualPaymentRequestDTO dto, Guid userId)
         {
             if (!Enum.IsDefined(typeof(PaymentAdjustmentCodeEnum), dto.PaymentAdjustmentCode))

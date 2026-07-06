@@ -14,5 +14,7 @@ namespace PayrollBackendProject.Application.DTO
         public DateTime AppliedDate { get; set; }
         public DateTime? PaymentDate { get; set; }
         public Guid? ImportBatchId { get; set; }
+        public decimal AppliedAmount { get; set; }
+        public decimal RemainingAmount { get; set; }
     }
 }

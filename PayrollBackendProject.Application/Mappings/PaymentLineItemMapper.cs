@@ -56,7 +56,9 @@ namespace PayrollBackendProject.Application.Mappings
                 RawClinicianName = item.RawClinicianName,
                 AppliedDate = item.AppliedDate,
                 PaymentDate = item.PaymentDate,
-                ImportBatchId = item.ImportBatchId
+                ImportBatchId = item.ImportBatchId,
+                AppliedAmount = item.Code500AppliedAmount,
+                RemainingAmount = item.RemainingCode500Amount
             };
         }
 

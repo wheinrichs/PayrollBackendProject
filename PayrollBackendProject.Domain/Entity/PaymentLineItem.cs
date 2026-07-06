@@ -31,6 +31,11 @@ namespace PayrollBackendProject.Domain.Entity
 
         public bool IsCode500Applied { get; private set; }
 
+        public decimal Code500AppliedAmount { get; private set; }
+        public List<Code500Application> Code500Applications { get; private set; } = new();
+
+        public decimal RemainingCode500Amount => Math.Abs(AdjustmentAmount) - Code500AppliedAmount;
+
         public string Fingerprint { get; private set; } = string.Empty;
 
         public int RowNumber { get; private set; }
@@ -175,14 +180,24 @@ namespace PayrollBackendProject.Domain.Entity
             return item;
         }
 
-        public void ApplyCode500()
+        public Code500Application ApplyCode500(decimal amount, Guid appliedByUserId, PayRun payRun)
         {
             if (PaymentAdjustmentCode != PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
                 throw new InvalidOperationException("Cannot apply a non-code-500 payment.");
-            if (IsCode500Applied)
-                throw new InvalidOperationException("This payment has already been applied.");
-            IsCode500Applied = true;
+            if (ClinicianId == null)
+                throw new InvalidOperationException("Cannot apply a code 500 payment with no resolved clinician.");
+            if (amount <= 0)
+                throw new ArgumentException("Amount to apply must be greater than 0.");
+            if (amount > RemainingCode500Amount)
+                throw new ArgumentException("Cannot apply more than the remaining outstanding balance.");
+
+            Code500Application application = Code500Application.Create(this, amount, appliedByUserId, payRun);
+            Code500Applications.Add(application);
+            Code500AppliedAmount += amount;
+            if (RemainingCode500Amount == 0)
+                IsCode500Applied = true;
             PaymentLineItemStatus = PaymentLineItemStatusEnum.VALID;
+            return application;
         }
 
         public void UpdateClinician(Clinician clinician)

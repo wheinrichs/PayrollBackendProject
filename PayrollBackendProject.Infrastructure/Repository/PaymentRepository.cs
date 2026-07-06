@@ -72,5 +72,18 @@ namespace PayrollBackendProject.Infrastructure.Repository
         {
             return await _database.PaymentLineItems.FindAsync(id);
         }
+
+        public async Task<List<Code500Application>> GetCode500ApplicationsBetweenDates(DateTime start, DateTime end)
+        {
+            return await _database.Code500Applications
+                .Include(a => a.PaymentLineItem)
+                .Where(a => a.AppliedDate <= end && a.AppliedDate >= start)
+                .ToListAsync();
+        }
+
+        public void AddCode500Application(Code500Application application)
+        {
+            _database.Code500Applications.Add(application);
+        }
     }
 }

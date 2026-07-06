@@ -195,9 +195,123 @@ public class PaymentLineItemUnitTests
         );
     }
 
+    /*
+    Test that a partial apply reduces the remaining balance without marking the line item
+    as fully applied, and records a single application entry
+    */
+    [Fact]
+    public void ApplyCode500_ShouldReduceRemainingBalance_WhenPartial()
+    {
+        var item = CreateValidTakebackItem(-200m);
+        var payRun = CreateValidPayRun();
+
+        Code500Application application = item.ApplyCode500(50m, Guid.NewGuid(), payRun);
+
+        Assert.Equal(50m, application.AppliedAmount);
+        Assert.Equal(150m, item.RemainingCode500Amount);
+        Assert.False(item.IsCode500Applied);
+        Assert.Single(item.Code500Applications);
+    }
+
+    /*
+    Test that two sequential partial applications summing to the full magnitude
+    mark the line item fully applied on the second call
+    */
+    [Fact]
+    public void ApplyCode500_ShouldMarkFullyApplied_AfterSequentialPartialApplications()
+    {
+        var item = CreateValidTakebackItem(-200m);
+        var payRun = CreateValidPayRun();
+
+        item.ApplyCode500(50m, Guid.NewGuid(), payRun);
+        Assert.False(item.IsCode500Applied);
+
+        item.ApplyCode500(150m, Guid.NewGuid(), payRun);
+
+        Assert.True(item.IsCode500Applied);
+        Assert.Equal(0m, item.RemainingCode500Amount);
+        Assert.Equal(2, item.Code500Applications.Count);
+    }
+
+    /*
+    Test that applying more than the remaining outstanding balance throws
+    */
+    [Fact]
+    public void ApplyCode500_ShouldThrow_WhenAmountExceedsRemaining()
+    {
+        var item = CreateValidTakebackItem(-200m);
+        var payRun = CreateValidPayRun();
+
+        Assert.Throws<ArgumentException>(() => item.ApplyCode500(201m, Guid.NewGuid(), payRun));
+    }
+
+    /*
+    Test that applying a non-positive amount throws
+    */
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-10)]
+    public void ApplyCode500_ShouldThrow_WhenAmountNotPositive(decimal amount)
+    {
+        var item = CreateValidTakebackItem(-200m);
+        var payRun = CreateValidPayRun();
+
+        Assert.Throws<ArgumentException>(() => item.ApplyCode500(amount, Guid.NewGuid(), payRun));
+    }
+
+    /*
+    Test that applying to a line item with no resolved clinician throws
+    */
+    [Fact]
+    public void ApplyCode500_ShouldThrow_WhenClinicianUnresolved()
+    {
+        var item = CreateValidTakebackItem(-200m, includeClinician: false);
+        var payRun = CreateValidPayRun();
+
+        Assert.Throws<InvalidOperationException>(() => item.ApplyCode500(50m, Guid.NewGuid(), payRun));
+    }
+
+    /*
+    Test that applying to a non-500-code line item throws
+    */
+    [Fact]
+    public void ApplyCode500_ShouldThrow_WhenNotTakebackCode()
+    {
+        var item = CreateValidItem();
+        var payRun = CreateValidPayRun();
+
+        Assert.Throws<InvalidOperationException>(() => item.ApplyCode500(10m, Guid.NewGuid(), payRun));
+    }
+
     // ------------------------
     // Helpers
     // ------------------------
+
+    private static PayRun CreateValidPayRun() =>
+        PayRun.GeneratePayRun(DateTime.UtcNow.AddDays(-8), DateTime.UtcNow.AddDays(-1));
+
+    private static PaymentLineItem CreateValidTakebackItem(decimal adjustmentAmount, bool includeClinician = true)
+    {
+        return PaymentLineItem.GeneratePaymentLineItem(
+            "raw",
+            includeClinician ? GetValidClinician() : null,
+            "Dr",
+            0,
+            adjustmentAmount,
+            PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK,
+            DateTime.UtcNow,
+            "p",
+            "cpt",
+            "pay",
+            "payer",
+            GetValidUser(),
+            GetValidBatch(),
+            1,
+            Guid.NewGuid().ToString(),
+            DateTime.UtcNow,
+            null
+        );
+    }
 
     private static PaymentLineItem CreateValidItem()
     {

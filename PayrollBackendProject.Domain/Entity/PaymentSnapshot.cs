@@ -71,6 +71,46 @@ namespace PayrollBackendProject.Domain.Entity
             return new PaymentSnapshot(paymentLineItem, payRun);
         }
 
+        private PaymentSnapshot(Code500Application application, PaymentLineItem paymentLineItem, PayRun payRun)
+        {
+            Id = Guid.NewGuid();
+            // Save the source info
+            PayRun = payRun;
+            PayRunId = payRun.Id;
+            PaymentLineItemId = paymentLineItem.Id;
+
+            // Save the snapshot information - the adjustment amount reflects only the chunk
+            // applied to this pay run, not the full original line item amount
+            RawData = paymentLineItem.RawData;
+            ClinicianId = paymentLineItem.ClinicianId;
+            PaymentAmount = 0m;
+            AdjustmentAmount = -(application.AppliedAmount);
+            AdjustmentCode = paymentLineItem.PaymentAdjustmentCode;
+            DateOfService = paymentLineItem.DateOfService;
+            PatientId = paymentLineItem.PatientId;
+            CPTCode = paymentLineItem.CPTCode;
+            PaymentId = paymentLineItem.PaymentId;
+            Payer = paymentLineItem.Payer;
+            AppliedById = paymentLineItem.AppliedById;
+            ImportBatchId = paymentLineItem.ImportBatchId;
+            RowNumber = paymentLineItem.RowNumber;
+            AppliedDate = application.AppliedDate;
+            PaymentDate = paymentLineItem.PaymentDate;
+        }
+
+        public static PaymentSnapshot CreateSnapshot(Code500Application application, PaymentLineItem paymentLineItem, PayRun payRun)
+        {
+            if (payRun == null || application == null || paymentLineItem == null)
+            {
+                throw new ArgumentException("Pay run, application, and line item cannot be null when creating a snapshot");
+            }
+            if (application.PaymentLineItemId != paymentLineItem.Id)
+            {
+                throw new ArgumentException("Application does not belong to the given payment line item");
+            }
+            return new PaymentSnapshot(application, paymentLineItem, payRun);
+        }
+
         public void AssignStatement(PayStatement statement)
         {
             if (PayStatement != null)

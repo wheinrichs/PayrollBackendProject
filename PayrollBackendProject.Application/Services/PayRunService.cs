@@ -48,15 +48,37 @@ namespace PayrollBackendProject.Application.Services
 
             var (start, end) = PayRunMapper.DTOToDates(request);
 
-            // Gather all the payment line items, create a snapshot for each one, and assign them to a new pay run
+            List<PayRun> overlapping = await _payRunRepo.GetOverlappingPayRuns(start, end);
+            if (overlapping.Any())
+            {
+                throw new ArgumentException(
+                    $"Pay run date range {start:yyyy-MM-dd} - {end:yyyy-MM-dd} overlaps an existing pay run.");
+            }
+
+            // Gather all the payment line items, create a snapshot for each one, and assign them to a new pay run.
+            // 500-code (INSURANCE_TAKEBACK) line items never flow in automatically - they only enter a pay run
+            // when explicitly applied (fully or partially) via request.Code500Applications below.
             List<PaymentLineItem> payments = await _paymentRepo.GetPaymentBetweenDates(start, end);
             payments = payments.Where(p =>
-                p.PaymentAdjustmentCode != Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK || p.IsCode500Applied
+                p.PaymentAdjustmentCode != Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK
             ).ToList();
             // TODO think about if this is the right behavior - right now you are filtering out payments that are in the system but have no clinician entity - is this right? Do we want to include these in the payrun?
             payments = payments.Where(p => p.ClinicianId != null).ToList();
             PayRun payRun = PayRun.GeneratePayRun(start, end);
             List<PaymentSnapshot> snapshotPayments = payments.Select(p => PaymentSnapshot.CreateSnapshot(p, payRun)).ToList();
+
+            // Apply the requested portion (full or partial) of each outstanding 500-code balance to this pay run
+            foreach (Code500ApplicationRequestDTO applyRequest in request.Code500Applications)
+            {
+                PaymentLineItem? lineItem = await _paymentRepo.GetPaymentLineItemById(applyRequest.PaymentLineItemId);
+                if (lineItem == null)
+                    throw new KeyNotFoundException($"Payment line item {applyRequest.PaymentLineItemId} not found.");
+
+                Code500Application application = lineItem.ApplyCode500(applyRequest.Amount, userId, payRun);
+                _paymentRepo.AddCode500Application(application);
+                snapshotPayments.Add(PaymentSnapshot.CreateSnapshot(application, lineItem, payRun));
+            }
+
             payRun.AssignPayments(snapshotPayments);
 
             // Log pay run create

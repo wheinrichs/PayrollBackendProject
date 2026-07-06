@@ -128,6 +128,7 @@ builder.Services.AddScoped<IPayStatementRepository, PayStatementRepository>();
 builder.Services.AddScoped<IPayRunService, PayRunService>();
 builder.Services.AddScoped<PayrollCalculator, PayrollCalculator>();
 builder.Services.AddScoped<IPaymentLineItemService, PaymentLineItemService>();
+builder.Services.AddScoped<IBusinessPayReportService, BusinessPayReportService>();
 
 // Add service for tokens
 builder.Services.AddScoped<ITokenService, JwtTokenService>();

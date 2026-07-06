@@ -43,5 +43,15 @@ namespace PayrollBackendProject.Application.DTO
         /// Required and must be greater than 0 when <see cref="IncludePsychTodayPayout"/> is true; otherwise ignored.
         /// </remarks>
         public decimal? PsychTodayPayoutAmount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the outstanding 500-code (insurance takeback) balances to apply to this pay run.
+        /// </summary>
+        /// <remarks>
+        /// Each entry applies a specific dollar amount from a specific outstanding <c>PaymentLineItem</c>'s
+        /// remaining balance to this pay run. Any outstanding balance not referenced here is left untouched
+        /// for a future pay run to apply against.
+        /// </remarks>
+        public List<Code500ApplicationRequestDTO> Code500Applications { get; set; } = new();
     }
 }

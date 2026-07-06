@@ -236,48 +236,7 @@ public class PaymentLineItemServiceUnitTests
         Assert.Single(result);
         Assert.Equal(payment.Id, result[0].Id);
         Assert.Equal(-150m, result[0].AdjustmentAmount);
-    }
-
-    /*
-    Validate that ApplyCode500Payment marks the payment as applied, writes an audit log,
-    and persists the change
-    */
-    [Fact]
-    public async Task ApplyCode500Payment_ShouldApply_AndSaveChanges()
-    {
-        var service = CreateService();
-        var paymentId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-
-        var ehrUser = new EHRUser("A", "B", "a@b.com");
-        var batch = new ImportBatch("file.csv", "fp-apply-500");
-        var payment = PaymentLineItem.GeneratePaymentLineItem(
-            "raw", null, "Dr. Jones", 0m, -300m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK,
-            DateTime.UtcNow.AddDays(-7), "P100", "90837", "PAY-TB-02", "CIGNA",
-            ehrUser, batch, 1, "fp-apply-500-unique", DateTime.UtcNow.AddDays(-3), null);
-
-        _paymentRepo.Setup(r => r.GetPaymentLineItemById(paymentId)).ReturnsAsync(payment);
-
-        await service.ApplyCode500Payment(paymentId, userId);
-
-        Assert.True(payment.IsCode500Applied);
-        _auditLogRepo.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Once);
-        _unitOfWork.Verify(u => u.SaveChangesAsync(), Times.Once);
-    }
-
-    /*
-    Validate that ApplyCode500Payment throws KeyNotFoundException when no payment with
-    the given ID exists
-    */
-    [Fact]
-    public async Task ApplyCode500Payment_ShouldThrow_WhenPaymentNotFound()
-    {
-        var service = CreateService();
-
-        _paymentRepo.Setup(r => r.GetPaymentLineItemById(It.IsAny<Guid>()))
-            .ReturnsAsync((PaymentLineItem?)null);
-
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            service.ApplyCode500Payment(Guid.NewGuid(), Guid.NewGuid()));
+        Assert.Equal(0m, result[0].AppliedAmount);
+        Assert.Equal(150m, result[0].RemainingAmount);
     }
 }

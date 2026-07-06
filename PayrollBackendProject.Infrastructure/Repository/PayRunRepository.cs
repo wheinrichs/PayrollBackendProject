@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PayrollBackendProject.Application.Interfaces.Repository;
 using PayrollBackendProject.Domain.Entity;
+using PayrollBackendProject.Domain.Enums;
 using PayrollBackendProject.Infrastructure.Data;
 
 namespace PayrollBackendProject.Infrastructure.Repository
@@ -27,6 +28,15 @@ namespace PayrollBackendProject.Infrastructure.Repository
         public async Task<List<PayRun>> GetAllPayRuns()
         {
             return await _database.PayRuns.ToListAsync<PayRun>();
+        }
+
+        public async Task<List<PayRun>> GetOverlappingPayRuns(DateTime start, DateTime end)
+        {
+            return await _database.PayRuns
+                .Where(p => p.StartDate <= end && p.EndDate >= start)
+                .Where(p => p.GenerationStatus != PayRunStatusEnum.FAILED
+                         && p.ApprovalState != ApprovalStateEnum.REJECTED)
+                .ToListAsync();
         }
     }
 }
