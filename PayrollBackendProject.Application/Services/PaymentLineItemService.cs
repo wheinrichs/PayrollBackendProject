@@ -77,6 +77,23 @@ namespace PayrollBackendProject.Application.Services
             return item.Id;
         }
 
+        public async Task RejectCode500Payment(Guid id, Guid userId)
+        {
+            PaymentLineItem? item = await _paymentRepo.GetPaymentLineItemById(id);
+            if (item == null)
+                throw new KeyNotFoundException($"Payment line item with ID {id} not found.");
+
+            string previousState = JsonSerializer.Serialize(PaymentLineItemMapper.DomainToDto(item));
+
+            item.Reject(userId);
+
+            string newState = JsonSerializer.Serialize(PaymentLineItemMapper.DomainToDto(item));
+            AuditLog log = new("Payment Line Item", item.Id, AuditLogActionEnum.REJECTED, previousState, newState, userId.ToString());
+            await _auditLogRepo.AddAuditLog(log);
+
+            await _unitOfWork.SaveChangesAsync();
+        }
+
         private async Task<EHRUser> ResolveAppliedByUser(Guid userId)
         {
             UserAccount? userAccount = await _userAccountRepo.GetById(userId);

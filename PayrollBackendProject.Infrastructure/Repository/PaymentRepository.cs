@@ -64,7 +64,7 @@ namespace PayrollBackendProject.Infrastructure.Repository
         public async Task<List<PaymentLineItem>> GetUnappliedCode500Payments()
         {
             return await _database.PaymentLineItems
-                .Where(p => p.PaymentAdjustmentCode == Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK && !p.IsCode500Applied)
+                .Where(p => p.PaymentAdjustmentCode == Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK && !p.IsCode500Applied && !p.IsRejected)
                 .ToListAsync();
         }
 

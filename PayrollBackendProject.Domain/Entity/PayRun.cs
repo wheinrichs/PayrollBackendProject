@@ -92,7 +92,7 @@ namespace PayrollBackendProject.Domain.Entity
         {
             if (approver.Role != RoleEnum.ADMIN && approver.Role != RoleEnum.BACKEND)
             {
-                throw new InvalidOperationException("Can only be approved by backend or admin user.");
+                throw new InvalidOperationException("Can only be rejected by backend or admin user.");
             }
             ApprovalState = ApprovalStateEnum.REJECTED;
             ApprovedRejectedBy = approver.Id;

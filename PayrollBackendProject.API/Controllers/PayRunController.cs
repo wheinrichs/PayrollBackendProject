@@ -14,7 +14,7 @@ namespace PayrollBackendProject.API.Controllers
     /// This controller supports:
     /// - Creating pay runs for a given date range
     /// - Retrieving pay statements for a specific run
-    /// - Approving pay runs and individual pay statements
+    /// - Approving or rejecting pay runs and individual pay statements
     /// 
     /// Access is restricted to users with ADMIN or BACKEND roles.
     /// </remarks>
@@ -134,6 +134,46 @@ namespace PayrollBackendProject.API.Controllers
 
             // Approve the specified pay statement
             await _service.ApprovePayStatement(payStatementGuid, approvalUserId);
+
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Rejects a pay run.
+        /// </summary>
+        /// <param name="payRunGuid">The unique identifier of the pay run to reject.</param>
+        /// <returns>No content if the rejection is successful.</returns>
+        /// <response code="204">The pay run was successfully rejected.</response>
+        /// <response code="401">If the user is not authenticated.</response>
+        /// <response code="403">If the user does not have permission to reject.</response>
+        [HttpPost("/rejectRun/{payRunGuid}/reject")]
+        public async Task<ActionResult> RejectPayRun(Guid payRunGuid)
+        {
+            // Extract the rejecting user ID from the authentication token
+            Guid approvalUserId = TokenParser.RetrieveGuidFromToken(User);
+
+            // Reject the specified pay run
+            await _service.RejectPayRun(payRunGuid, approvalUserId);
+
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Rejects an individual pay statement.
+        /// </summary>
+        /// <param name="payStatementGuid">The unique identifier of the pay statement to reject.</param>
+        /// <returns>No content if the rejection is successful.</returns>
+        /// <response code="204">The pay statement was successfully rejected.</response>
+        /// <response code="401">If the user is not authenticated.</response>
+        /// <response code="403">If the user does not have permission to reject.</response>
+        [HttpPost("/rejectStatement/{payStatementGuid}/reject")]
+        public async Task<ActionResult> RejectPayStatement(Guid payStatementGuid)
+        {
+            // Extract the rejecting user ID from the authentication token
+            Guid approvalUserId = TokenParser.RetrieveGuidFromToken(User);
+
+            // Reject the specified pay statement
+            await _service.RejectPayStatement(payStatementGuid, approvalUserId);
 
             return NoContent();
         }

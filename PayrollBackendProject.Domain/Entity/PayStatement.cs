@@ -96,6 +96,10 @@ namespace PayrollBackendProject.Domain.Entity
 
         public void Reject(UserAccount approver)
         {
+            if (ApprovalState != ApprovalStateEnum.PENDING)
+            {
+                throw new InvalidOperationException("Can only reject pending statements.");
+            }
             if (approver.Role != RoleEnum.ADMIN && approver.Role != RoleEnum.BACKEND)
             {
                 throw new InvalidOperationException("Can only be rejected by backend or admin user.");

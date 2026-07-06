@@ -45,6 +45,10 @@ namespace PayrollBackendProject.Domain.Entity
 
         public PaymentLineItemStatusEnum PaymentLineItemStatus { get; private set; }
 
+        public bool IsRejected { get; private set; }
+        public DateTime? RejectedDate { get; private set; }
+        public Guid? RejectedById { get; private set; }
+
         private PaymentLineItem() { }
 
         public static PaymentLineItem GeneratePaymentLineItem(
@@ -198,6 +202,20 @@ namespace PayrollBackendProject.Domain.Entity
                 IsCode500Applied = true;
             PaymentLineItemStatus = PaymentLineItemStatusEnum.VALID;
             return application;
+        }
+
+        public void Reject(Guid rejectedByUserId)
+        {
+            if (PaymentAdjustmentCode != PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK)
+                throw new InvalidOperationException("Cannot reject a non-code-500 payment.");
+            if (IsRejected)
+                throw new InvalidOperationException("Payment has already been rejected.");
+            if (Code500AppliedAmount > 0)
+                throw new InvalidOperationException("Cannot reject a payment that already has amounts applied to a pay run.");
+
+            IsRejected = true;
+            RejectedDate = DateTime.UtcNow;
+            RejectedById = rejectedByUserId;
         }
 
         public void UpdateClinician(Clinician clinician)

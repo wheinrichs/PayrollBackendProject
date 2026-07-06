@@ -283,6 +283,58 @@ public class PaymentLineItemUnitTests
         Assert.Throws<InvalidOperationException>(() => item.ApplyCode500(10m, Guid.NewGuid(), payRun));
     }
 
+    /*
+    Test that rejecting an unapplied takeback item marks it rejected with a timestamp and actor
+    */
+    [Fact]
+    public void Reject_ShouldMarkRejected_WhenNothingApplied()
+    {
+        var item = CreateValidTakebackItem(-200m);
+        var userId = Guid.NewGuid();
+
+        item.Reject(userId);
+
+        Assert.True(item.IsRejected);
+        Assert.Equal(userId, item.RejectedById);
+        Assert.NotNull(item.RejectedDate);
+    }
+
+    /*
+    Test that rejecting a non-500-code line item throws
+    */
+    [Fact]
+    public void Reject_ShouldThrow_WhenNotTakebackCode()
+    {
+        var item = CreateValidItem();
+
+        Assert.Throws<InvalidOperationException>(() => item.Reject(Guid.NewGuid()));
+    }
+
+    /*
+    Test that rejecting an item that already has an applied amount throws
+    */
+    [Fact]
+    public void Reject_ShouldThrow_WhenAmountAlreadyApplied()
+    {
+        var item = CreateValidTakebackItem(-200m);
+        var payRun = CreateValidPayRun();
+        item.ApplyCode500(50m, Guid.NewGuid(), payRun);
+
+        Assert.Throws<InvalidOperationException>(() => item.Reject(Guid.NewGuid()));
+    }
+
+    /*
+    Test that rejecting an already-rejected item throws
+    */
+    [Fact]
+    public void Reject_ShouldThrow_WhenAlreadyRejected()
+    {
+        var item = CreateValidTakebackItem(-200m);
+        item.Reject(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => item.Reject(Guid.NewGuid()));
+    }
+
     // ------------------------
     // Helpers
     // ------------------------

@@ -239,4 +239,68 @@ public class PaymentLineItemServiceUnitTests
         Assert.Equal(0m, result[0].AppliedAmount);
         Assert.Equal(150m, result[0].RemainingAmount);
     }
+
+    /*
+    Validate that RejectCode500Payment rejects the item, logs the action, and saves changes
+    */
+    [Fact]
+    public async Task RejectCode500Payment_ShouldRejectItem_AndLogAndSave()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var ehrUser = new EHRUser("A", "B", "a@b.com");
+        var batch = new ImportBatch("file.csv", "fp-reject-batch");
+        var payment = PaymentLineItem.GeneratePaymentLineItem(
+            "raw", null, "Dr. Smith", 0m, -150m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK,
+            DateTime.UtcNow.AddDays(-10), "P999", "90837", "PAY-TB-01", "CIGNA",
+            ehrUser, batch, 1, "fp-reject-unique", DateTime.UtcNow.AddDays(-5), null);
+
+        _paymentRepo.Setup(r => r.GetPaymentLineItemById(payment.Id)).ReturnsAsync(payment);
+
+        await service.RejectCode500Payment(payment.Id, userId);
+
+        Assert.True(payment.IsRejected);
+        Assert.Equal(userId, payment.RejectedById);
+        _auditLogRepo.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Once);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    /*
+    Validate that RejectCode500Payment throws KeyNotFoundException when the item does not exist
+    */
+    [Fact]
+    public async Task RejectCode500Payment_WhenNotFound_ShouldThrowKeyNotFoundException()
+    {
+        var service = CreateService();
+        var id = Guid.NewGuid();
+
+        _paymentRepo.Setup(r => r.GetPaymentLineItemById(id)).ReturnsAsync((PaymentLineItem?)null);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.RejectCode500Payment(id, Guid.NewGuid()));
+    }
+
+    /*
+    Validate that RejectCode500Payment surfaces the domain's InvalidOperationException
+    when the item already has an applied amount
+    */
+    [Fact]
+    public async Task RejectCode500Payment_WhenAlreadyApplied_ShouldThrowInvalidOperationException()
+    {
+        var service = CreateService();
+        var ehrUser = new EHRUser("A", "B", "a@b.com");
+        var batch = new ImportBatch("file.csv", "fp-reject-applied-batch");
+        var payment = PaymentLineItem.GeneratePaymentLineItem(
+            "raw", null, "Dr. Smith", 0m, -150m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK,
+            DateTime.UtcNow.AddDays(-10), "P999", "90837", "PAY-TB-02", "CIGNA",
+            ehrUser, batch, 1, "fp-reject-applied-unique", DateTime.UtcNow.AddDays(-5), null);
+        var clinician = new Clinician("Jane", "Smith", "jane@clinic.com");
+        payment.UpdateClinician(clinician);
+        var payRun = PayRun.GeneratePayRun(DateTime.UtcNow.AddDays(-8), DateTime.UtcNow.AddDays(-1));
+        payment.ApplyCode500(50m, Guid.NewGuid(), payRun);
+
+        _paymentRepo.Setup(r => r.GetPaymentLineItemById(payment.Id)).ReturnsAsync(payment);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RejectCode500Payment(payment.Id, Guid.NewGuid()));
+    }
 }

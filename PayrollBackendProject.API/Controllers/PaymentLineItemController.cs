@@ -47,5 +47,24 @@ namespace PayrollBackendProject.API.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        [HttpPost("takebacks/{id}/reject")]
+        public async Task<IActionResult> RejectCode500Payment(Guid id)
+        {
+            try
+            {
+                Guid userId = TokenParser.RetrieveGuidFromToken(User);
+                await _service.RejectCode500Payment(id, userId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ex.Message);
+            }
+        }
     }
 }

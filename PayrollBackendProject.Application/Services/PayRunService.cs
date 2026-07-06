@@ -150,7 +150,6 @@ namespace PayrollBackendProject.Application.Services
             return result;
         }
 
-        // TODO ADD REJECT ENDPOINT
         public async Task ApprovePayRun(Guid payRunGuid, Guid approverGuid)
         {
             PayRun? payRun = await _payRunRepo.GetPayRun(payRunGuid);
@@ -194,6 +193,54 @@ namespace PayrollBackendProject.Application.Services
             // Log the approved pay statement
             string newLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(payStatement, payStatement.PayRunId));
             AuditLog createdLog = new("Pay Statement", payStatement.Id, AuditLogActionEnum.APPROVED, oldLogState, newLogState, approverGuid.ToString());
+            await _auditLogRepo.AddAuditLog(createdLog);
+
+            await _unitOfWorkRepo.SaveChangesAsync();
+        }
+
+        public async Task RejectPayRun(Guid payRunGuid, Guid approverGuid)
+        {
+            PayRun? payRun = await _payRunRepo.GetPayRun(payRunGuid);
+            UserAccount? approver = await _userAccountRepo.GetById(approverGuid);
+            if (payRun == null)
+            {
+                throw new KeyNotFoundException("Pay run does not exist in database.");
+            }
+            if (approver == null)
+            {
+                throw new KeyNotFoundException("Approver does not exist as User in database.");
+            }
+            string oldLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
+
+            payRun.Reject(approver);
+
+            // Log the rejection
+            string newLogState = JsonSerializer.Serialize(PayRunMapper.DomainToDTO(payRun));
+            AuditLog createdLog = new("Pay Run", payRun.Id, AuditLogActionEnum.REJECTED, oldLogState, newLogState, approverGuid.ToString());
+            await _auditLogRepo.AddAuditLog(createdLog);
+
+            await _unitOfWorkRepo.SaveChangesAsync();
+        }
+
+        public async Task RejectPayStatement(Guid PayStatementGuid, Guid approverGuid)
+        {
+            PayStatement? payStatement = await _payStatementRepo.GetPayStatement(PayStatementGuid);
+            UserAccount? approver = await _userAccountRepo.GetById(approverGuid);
+            if (payStatement == null)
+            {
+                throw new KeyNotFoundException("Pay statement does not exist in database.");
+            }
+            if (approver == null)
+            {
+                throw new KeyNotFoundException("Approver does not exist as User in database.");
+            }
+            string oldLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(payStatement, payStatement.PayRunId));
+
+            payStatement.Reject(approver);
+
+            // Log the rejected pay statement
+            string newLogState = JsonSerializer.Serialize(PayStatementMapper.DomainToDTO(payStatement, payStatement.PayRunId));
+            AuditLog createdLog = new("Pay Statement", payStatement.Id, AuditLogActionEnum.REJECTED, oldLogState, newLogState, approverGuid.ToString());
             await _auditLogRepo.AddAuditLog(createdLog);
 
             await _unitOfWorkRepo.SaveChangesAsync();
