@@ -66,6 +66,18 @@ namespace PayrollBackendProject.API.Controllers
         }
 
         /// <summary>
+        /// Retrieves all pay runs.
+        /// </summary>
+        /// <returns>A list of all pay runs with summary totals and status.</returns>
+        /// <response code="200">Returns the list of pay runs.</response>
+        [HttpGet]
+        public async Task<ActionResult<List<PayRunResponseDTO>>> GetAllPayRuns()
+        {
+            List<PayRunResponseDTO> response = await _service.GetAllPayRuns();
+            return Ok(response);
+        }
+
+        /// <summary>
         /// Retrieves all pay statements associated with a specific pay run.
         /// </summary>
         /// <param name="payRunGuid">The unique identifier of the pay run.</param>

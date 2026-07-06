@@ -51,9 +51,9 @@
 
         private void ValidateCostShare(double costShare)
         {
-            if (costShare >= 1 || costShare <= 0)
+            if (costShare > 1 || costShare < 0)
             {
-                throw new ArgumentException("Cost share must be between 0 and 1");
+                throw new ArgumentException("Cost share must be between 0 and 1, inclusive");
             }
         }
 

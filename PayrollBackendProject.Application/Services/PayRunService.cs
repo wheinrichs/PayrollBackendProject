@@ -115,6 +115,12 @@ namespace PayrollBackendProject.Application.Services
 
         }
 
+        public async Task<List<PayRunResponseDTO>> GetAllPayRuns()
+        {
+            List<PayRun> payRuns = await _payRunRepo.GetAllPayRuns();
+            return payRuns.Select(PayRunMapper.DomainToDTO).ToList();
+        }
+
         public async Task<List<PayStatementDTO>> RetrievePayStatementsForRun(Guid PayRunGuid)
         {
             List<PayStatement> statements = await _payStatementRepo.GetPayStatementsForPayRun(PayRunGuid);
