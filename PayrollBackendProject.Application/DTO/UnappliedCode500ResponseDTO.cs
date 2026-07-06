@@ -16,5 +16,7 @@ namespace PayrollBackendProject.Application.DTO
         public Guid? ImportBatchId { get; set; }
         public decimal AppliedAmount { get; set; }
         public decimal RemainingAmount { get; set; }
+        public bool IsRejected { get; set; }
+        public DateTime? RejectedDate { get; set; }
     }
 }

@@ -25,6 +25,13 @@ namespace PayrollBackendProject.API.Controllers
             return Ok(result);
         }
 
+        [HttpGet("takebacks/rejected")]
+        public async Task<ActionResult<List<UnappliedCode500ResponseDTO>>> GetRejectedCode500Payments()
+        {
+            List<UnappliedCode500ResponseDTO> result = await _service.GetRejectedCode500Payments();
+            return Ok(result);
+        }
+
         [HttpPost("manual")]
         public async Task<ActionResult<Guid>> AddManualPayment([FromBody] ManualPaymentRequestDTO request)
         {

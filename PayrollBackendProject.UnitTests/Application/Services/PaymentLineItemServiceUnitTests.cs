@@ -241,6 +241,34 @@ public class PaymentLineItemServiceUnitTests
     }
 
     /*
+    Validate that GetRejectedCode500Payments returns a DTO for each rejected takeback payment
+    returned by the repository
+    */
+    [Fact]
+    public async Task GetRejectedCode500Payments_ShouldReturnMappedList()
+    {
+        var service = CreateService();
+
+        var ehrUser = new EHRUser("A", "B", "a@b.com");
+        var batch = new ImportBatch("file.csv", "fp-rejected-list");
+        var payment = PaymentLineItem.GeneratePaymentLineItem(
+            "raw", null, "Dr. Smith", 0m, -150m, PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK,
+            DateTime.UtcNow.AddDays(-10), "P999", "90837", "PAY-TB-03", "CIGNA",
+            ehrUser, batch, 1, "fp-rejected-list-unique", DateTime.UtcNow.AddDays(-5), null);
+        payment.Reject(Guid.NewGuid());
+
+        _paymentRepo.Setup(r => r.GetRejectedCode500Payments())
+            .ReturnsAsync(new List<PaymentLineItem> { payment });
+
+        var result = await service.GetRejectedCode500Payments();
+
+        Assert.Single(result);
+        Assert.Equal(payment.Id, result[0].Id);
+        Assert.True(result[0].IsRejected);
+        Assert.NotNull(result[0].RejectedDate);
+    }
+
+    /*
     Validate that RejectCode500Payment rejects the item, logs the action, and saves changes
     */
     [Fact]

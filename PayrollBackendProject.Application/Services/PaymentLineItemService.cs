@@ -43,6 +43,12 @@ namespace PayrollBackendProject.Application.Services
             return items.Select(PaymentLineItemMapper.DomainToUnappliedCode500DTO).ToList();
         }
 
+        public async Task<List<UnappliedCode500ResponseDTO>> GetRejectedCode500Payments()
+        {
+            List<PaymentLineItem> items = await _paymentRepo.GetRejectedCode500Payments();
+            return items.Select(PaymentLineItemMapper.DomainToUnappliedCode500DTO).ToList();
+        }
+
         public async Task<Guid> AddManualPayment(ManualPaymentRequestDTO dto, Guid userId)
         {
             if (!Enum.IsDefined(typeof(PaymentAdjustmentCodeEnum), dto.PaymentAdjustmentCode))

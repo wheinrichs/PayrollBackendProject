@@ -68,6 +68,13 @@ namespace PayrollBackendProject.Infrastructure.Repository
                 .ToListAsync();
         }
 
+        public async Task<List<PaymentLineItem>> GetRejectedCode500Payments()
+        {
+            return await _database.PaymentLineItems
+                .Where(p => p.PaymentAdjustmentCode == Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK && p.IsRejected)
+                .ToListAsync();
+        }
+
         public async Task<PaymentLineItem?> GetPaymentLineItemById(Guid id)
         {
             return await _database.PaymentLineItems.FindAsync(id);

@@ -58,7 +58,9 @@ namespace PayrollBackendProject.Application.Mappings
                 PaymentDate = item.PaymentDate,
                 ImportBatchId = item.ImportBatchId,
                 AppliedAmount = item.Code500AppliedAmount,
-                RemainingAmount = item.RemainingCode500Amount
+                RemainingAmount = item.RemainingCode500Amount,
+                IsRejected = item.IsRejected,
+                RejectedDate = item.RejectedDate
             };
         }
 
