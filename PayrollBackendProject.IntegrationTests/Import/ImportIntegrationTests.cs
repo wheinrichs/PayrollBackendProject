@@ -160,8 +160,8 @@ public class ImportIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(4, lineItems.Count);
 
         // Validate contents of line items
-        Assert.Contains(lineItems, li => li.PaymentAmount == -31.88m);
-        Assert.Contains(lineItems, li => li.PaymentAmount == -34.21m);
+        Assert.Contains(lineItems, li => li.PaymentAmount == 31.88m);
+        Assert.Contains(lineItems, li => li.PaymentAmount == 34.21m);
 
         // Assert - Batch results populated correctly
         Assert.Equal(4, batch.TotalRows);

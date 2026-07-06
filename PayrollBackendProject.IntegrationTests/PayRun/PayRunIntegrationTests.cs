@@ -232,7 +232,9 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         db.ImportBatches.Add(batch);
         db.EHRUsers.Add(ehrUser);
 
-        var applied = DateTime.UtcNow.AddDays(-1);
+        // Use a date window offset from the other relative-date tests in this file so their
+        // pay run ranges don't overlap (pay run generation now rejects overlapping date ranges)
+        var applied = DateTime.UtcNow.AddDays(-11);
 
         var payment = CreatePayment(clinician, batch, ehrUser, 100, DateTime.UtcNow, applied, 1);
         db.PaymentLineItems.Add(payment);
@@ -294,7 +296,9 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         db.ImportBatches.Add(batch);
         db.EHRUsers.Add(ehrUser);
 
-        var applied = DateTime.UtcNow.AddDays(-1);
+        // Use a date window offset from the other relative-date tests in this file so their
+        // pay run ranges don't overlap (pay run generation now rejects overlapping date ranges)
+        var applied = DateTime.UtcNow.AddDays(-21);
 
         db.PaymentLineItems.AddRange(
             CreatePayment(clinician, batch, ehrUser, 100, DateTime.UtcNow, applied, 1),
@@ -313,7 +317,7 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         _client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", admin.Token);
 
-        var appliedDate = DateTime.UtcNow.AddDays(-1);
+        var appliedDate = DateTime.UtcNow.AddDays(-21);
 
         var res = await _client.PostAsJsonAsync("/api/payrun",
             new { StartDate = appliedDate.AddDays(-1), EndDate = appliedDate.AddDays(1) });

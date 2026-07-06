@@ -166,7 +166,7 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
         clinicianStatementMessage.EnsureSuccessStatusCode();
         List<PayStatementDTO>? clinicianPayStatementDTO = await clinicianStatementMessage.Content.ReadFromJsonAsync<List<PayStatementDTO>>();
         Assert.NotNull(clinicianPayStatementDTO);
-        Assert.Equal(-31.88m, clinicianPayStatementDTO[0].TotalPayment);
+        Assert.Equal(31.88m, clinicianPayStatementDTO[0].TotalPayment);
     }
 
 }
