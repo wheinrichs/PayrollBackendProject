@@ -221,6 +221,36 @@ public class PayRunServiceTests
     }
 
     /*
+    Validate that a user whose primary Role is BACKEND (not CLINICIAN) can still
+    retrieve statements as long as they have a linked ClinicianId, since Role and
+    having clinician data are independent (e.g. a backend staff member who is also
+    a practicing clinician).
+    */
+    [Fact]
+    public async Task RetrieveStatementsForUser_ShouldSucceed_WhenBackendUserAlsoHasClinicianId()
+    {
+        var service = CreateService();
+
+        var clinicianId = Guid.NewGuid();
+
+        var user = new UserAccount
+        {
+            Role = RoleEnum.BACKEND,
+            ClinicianId = clinicianId
+        };
+
+        _userRepo.Setup(r => r.GetById(It.IsAny<Guid>()))
+            .ReturnsAsync(user);
+
+        _payStatementRepo.Setup(r => r.GetPayStatementsForUser(clinicianId))
+            .ReturnsAsync(new List<PayStatement>());
+
+        var result = await service.RetrieveStatementsForUser(Guid.NewGuid());
+
+        Assert.Empty(result);
+    }
+
+    /*
     Validate that retrieving statements for a clinician only returns
     approved pay statements
     */

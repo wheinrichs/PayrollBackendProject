@@ -71,7 +71,10 @@ builder.Services.AddAuthorization( options =>
     options.AddPolicy("ApprovedClinicianOnly", policy =>
     {
         policy.RequireAuthenticatedUser();
-        policy.RequireRole(RoleEnum.CLINICIAN.ToString());
+        // A user's Role (ADMIN/CLINICIAN/BACKEND) is a single value and does not preclude
+        // also having clinician data linked to the account, so gate on the dedicated claim
+        // instead of the CLINICIAN role to support backend/admin users who are also clinicians.
+        policy.RequireClaim("hasClinicianId", true.ToString());
         policy.RequireClaim("status", UserAccountApprovalStateEnum.APPROVED.ToString());
     });
     options.AddPolicy("ApprovedBackendOnly", policy =>
