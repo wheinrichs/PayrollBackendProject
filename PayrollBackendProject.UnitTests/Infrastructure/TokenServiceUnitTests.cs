@@ -74,6 +74,32 @@ public class JwtTokenServiceUnitTests
         Assert.Contains(token.Claims, c => c.Type == ClaimTypes.NameIdentifier && c.Value == user.Id.ToString());
         Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Email && c.Value == user.Email);
         Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Role && c.Value == user.Role.ToString());
+        Assert.Contains(token.Claims, c => c.Type == "hasClinicianId" && c.Value == "False");
+    }
+
+    /*
+    Test that a BACKEND user who also has a linked ClinicianId gets a "hasClinicianId"
+    claim of true, independent of their Role claim, so they can access clinician-only
+    endpoints such as their own statements.
+    */
+    [Fact]
+    public void GenerateToken_SetsHasClinicianIdTrue_WhenBackendUserHasLinkedClinician()
+    {
+        // Arrange
+        var config = CreateConfig();
+        var service = new JwtTokenService(config);
+        var user = UserAccount.GenerateUserAccount("backend@test.com", "password", "A", "B", RoleEnum.BACKEND, null);
+        user.ClinicianId = Guid.NewGuid();
+
+        var handler = new JwtSecurityTokenHandler();
+
+        // Act
+        var tokenString = service.GenerateToken(user);
+        var token = handler.ReadJwtToken(tokenString);
+
+        // Assert
+        Assert.Contains(token.Claims, c => c.Type == ClaimTypes.Role && c.Value == RoleEnum.BACKEND.ToString());
+        Assert.Contains(token.Claims, c => c.Type == "hasClinicianId" && c.Value == "True");
     }
 
     /*

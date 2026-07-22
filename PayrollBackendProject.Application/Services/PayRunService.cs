@@ -271,7 +271,7 @@ namespace PayrollBackendProject.Application.Services
             {
                 throw new Exception($"User with ID {userId} not found");
             }
-            if (userAccount.Role != RoleEnum.CLINICIAN || userAccount.ClinicianId == null)
+            if (userAccount.ClinicianId == null)
             {
                 throw new InvalidOperationException("User is not a clinician");
             }

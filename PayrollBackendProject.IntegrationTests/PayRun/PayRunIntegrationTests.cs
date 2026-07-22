@@ -366,6 +366,66 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
     }
 
     /*
+    Test that a user whose account Role is BACKEND (not CLINICIAN) but who also has a
+    linked Clinician record can still retrieve their own statements through the real
+    authentication/authorization flow. This covers a dual-role user (e.g. backend staff
+    who are also practicing clinicians) who was previously blocked by the
+    ApprovedClinicianOnly policy and the RetrieveStatementsForUser role check, both of
+    which incorrectly required Role == CLINICIAN instead of checking for clinician data.
+    */
+    [Fact]
+    public async Task BackendUserWithLinkedClinician_CanRetrieveOwnStatements()
+    {
+        var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ClinicianDbContext>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        var clinician = new Clinician("Dual", "Role", "dualrole@test.com");
+        db.Clinicians.Add(clinician);
+
+        var payRun = PayRun.GeneratePayRun(DateTime.UtcNow.AddDays(-2), DateTime.UtcNow);
+        db.PayRuns.Add(payRun);
+
+        var statement = PayStatement.GenerateDraftPayStatement(clinician, payRun);
+        statement.CalculateTotals();
+        db.PayStatements.Add(statement);
+
+        var email = $"dualrole_{Guid.NewGuid()}@test.com";
+        var hashedPassword = passwordHasher.Hash("password1");
+        var backendClinicianUser = new UserAccount(email, hashedPassword, "Dual", "Role");
+        backendClinicianUser.Role = RoleEnum.BACKEND;
+        backendClinicianUser.ClinicianId = clinician.ID;
+        backendClinicianUser.UpdateUserAccountStatus(UserAccountApprovalStateEnum.APPROVED);
+        db.Users.Add(backendClinicianUser);
+
+        await db.SaveChangesAsync();
+
+        // Approve the statement so it is returned by the statements endpoint
+        var approver = new UserAccount($"approver_{Guid.NewGuid()}@test.com", hashedPassword, "X", "Y");
+        approver.Role = RoleEnum.ADMIN;
+        statement.Approve(approver);
+        await db.SaveChangesAsync();
+
+        var loginResponse = await _client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequestDTO(email, "password1"));
+        loginResponse.EnsureSuccessStatusCode();
+
+        var loginBody = await loginResponse.Content.ReadFromJsonAsync<LoginResponseDTO>();
+
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", loginBody!.Token);
+
+        var statementsRes = await _client.GetAsync("/api/me/statements");
+        statementsRes.EnsureSuccessStatusCode();
+
+        var statements = await statementsRes.Content.ReadFromJsonAsync<List<PayStatementDTO>>();
+
+        Assert.NotNull(statements);
+        Assert.Single(statements);
+    }
+
+    /*
     Validate that GET /api/payments/takebacks/pending returns only unapplied INSURANCE_TAKEBACK
     payments, not regular payments and not already-applied takebacks
     */
