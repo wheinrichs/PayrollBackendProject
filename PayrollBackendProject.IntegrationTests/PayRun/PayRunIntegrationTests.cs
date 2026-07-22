@@ -665,6 +665,121 @@ public class PayRunIntegrationTetsts : IClassFixture<CustomWebApplicationFactory
     }
 
     /*
+    Validate that an unresolved payment whose raw provider is the "!SELECT PROVIDER" sentinel
+    blocks the whole pay run with a 400 and nothing is persisted
+    */
+    [Fact]
+    public async Task GeneratePayRun_WithUnresolvedSentinelPayment_ReturnsBadRequest()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use December 2024 — an isolated month not used by any other test's pay run range
+        var dos = new DateTime(2024, 12, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inRange = new DateTime(2024, 12, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        var sentinelPayment = PaymentLineItem.GeneratePaymentLineItem(
+            rawData: "raw-sentinel",
+            clinician: null,
+            rawClinicianName: "!SELECT PROVIDER",
+            paymentAmount: 100m,
+            adjustmentAmount: 0,
+            adjustmentCode: PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT,
+            dateOfService: dos,
+            patientId: "p1",
+            cptCode: "90837",
+            paymentId: Guid.NewGuid().ToString(),
+            payer: "CIGNA",
+            appliedBy: ehrUser,
+            importBatch: batch,
+            rowNumber: 1,
+            fingerprint: Guid.NewGuid().ToString(),
+            appliedDate: inRange,
+            paymentDate: inRange
+        );
+        db.PaymentLineItems.Add(sentinelPayment);
+        await db.SaveChangesAsync();
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = new DateTime(2024, 12, 1),
+            EndDate = new DateTime(2024, 12, 31)
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+
+        var payRunCount = await db.PayRuns.CountAsync(p =>
+            p.StartDate == new DateTime(2024, 12, 1) && p.EndDate == new DateTime(2024, 12, 31));
+        Assert.Equal(0, payRunCount);
+    }
+
+    /*
+    Validate that a payment whose raw provider was the sentinel but has since been manually
+    assigned a clinician no longer blocks the pay run
+    */
+    [Fact]
+    public async Task GeneratePayRun_WithResolvedFormerSentinelPayment_Succeeds()
+    {
+        var db = await ResetDb();
+
+        var admin = await Signup("admin", db);
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", admin.Token);
+
+        var clinician = new Clinician("C12", "Test", $"c12_{Guid.NewGuid()}@test.com", false, 0.6);
+        var batch = new ImportBatch("file.csv", Guid.NewGuid().ToString());
+        var ehrUser = new EHRUser("X", "Y", $"xy_{Guid.NewGuid()}");
+        db.Clinicians.Add(clinician);
+        db.ImportBatches.Add(batch);
+        db.EHRUsers.Add(ehrUser);
+
+        // Use May 2019 — an isolated month not used by any other test's pay run range
+        var dos = new DateTime(2019, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var inRange = new DateTime(2019, 5, 15, 0, 0, 0, DateTimeKind.Utc);
+
+        var resolvedSentinelPayment = PaymentLineItem.GeneratePaymentLineItem(
+            rawData: "raw-sentinel-resolved",
+            clinician: clinician,
+            rawClinicianName: "!SELECT PROVIDER",
+            paymentAmount: 100m,
+            adjustmentAmount: 0,
+            adjustmentCode: PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT,
+            dateOfService: dos,
+            patientId: "p1",
+            cptCode: "90837",
+            paymentId: Guid.NewGuid().ToString(),
+            payer: "CIGNA",
+            appliedBy: ehrUser,
+            importBatch: batch,
+            rowNumber: 1,
+            fingerprint: Guid.NewGuid().ToString(),
+            appliedDate: inRange,
+            paymentDate: inRange
+        );
+        db.PaymentLineItems.Add(resolvedSentinelPayment);
+        await db.SaveChangesAsync();
+
+        var res = await _client.PostAsJsonAsync("/api/payrun", new
+        {
+            StartDate = new DateTime(2019, 5, 1),
+            EndDate = new DateTime(2019, 5, 31)
+        });
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var payRunCount = await db.PayRuns.CountAsync(p => p.Statements.Any(s => s.ClinicianId == clinician.ID));
+        Assert.Equal(1, payRunCount);
+    }
+
+    /*
     Validate that generating a pay run with IncludePsychTodayPayout enabled adds the flat payout
     only to eligible (HasPsychToday) clinicians, and reports it as a separate total on the response
     */

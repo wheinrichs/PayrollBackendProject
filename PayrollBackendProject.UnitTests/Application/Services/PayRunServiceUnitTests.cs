@@ -586,6 +586,62 @@ public class PayRunServiceTests
     }
 
     /*
+    Validate that an unresolved payment whose raw provider is the "!SELECT PROVIDER" sentinel
+    blocks the entire pay run before anything is persisted
+    */
+    [Theory]
+    [InlineData("!SELECT PROVIDER")]
+    [InlineData("!select provider")]
+    [InlineData(" !Select Provider ")]
+    public async Task ExecutePayRun_ShouldThrow_WhenUnresolvedSentinelPaymentExists(string rawClinicianName)
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var sentinelPayment = GeneratePaymentLineItem(null, rawClinicianName: rawClinicianName);
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { sentinelPayment });
+
+        var request = new PayRunRequestDTO { StartDate = DateTime.UtcNow.AddDays(-1), EndDate = DateTime.UtcNow };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ExecutePayRun(request, userId));
+
+        _payRunRepo.Verify(r => r.AddPayRun(It.IsAny<PayRun>()), Times.Never);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(), Times.Never);
+    }
+
+    /*
+    Validate that a payment whose raw provider was the sentinel but has since been manually
+    assigned a clinician no longer blocks the pay run
+    */
+    [Fact]
+    public async Task ExecutePayRun_ShouldSucceed_WhenSentinelPaymentAlreadyAssignedClinician()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var clinician = new Clinician("A", "B", "AB@AB.com");
+        var resolvedSentinelPayment = GeneratePaymentLineItem(clinician, rawClinicianName: "!SELECT PROVIDER");
+
+        _paymentRepo
+            .Setup(r => r.GetPaymentBetweenDates(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<PaymentLineItem> { resolvedSentinelPayment });
+
+        _clinicianRepo
+            .Setup(r => r.GetAllClinicians())
+            .ReturnsAsync(new List<Clinician> { clinician });
+
+        var request = new PayRunRequestDTO { StartDate = DateTime.UtcNow.AddDays(-1), EndDate = DateTime.UtcNow };
+
+        var result = await service.ExecutePayRun(request, userId);
+
+        Assert.NotNull(result);
+        _payRunRepo.Verify(r => r.AddPayRun(It.IsAny<PayRun>()), Times.Once);
+    }
+
+    /*
     Validate that enabling the flag without a positive amount throws before any pay run is created
     */
     [Fact]
@@ -611,12 +667,13 @@ public class PayRunServiceTests
         Clinician? clinician = null,
         decimal paymentAmount = 12.0m,
         decimal adjustmentAmount = 10.0m,
-        PaymentAdjustmentCodeEnum code = PaymentAdjustmentCodeEnum.INSURANCE_ADJUSTMENT)
+        PaymentAdjustmentCodeEnum code = PaymentAdjustmentCodeEnum.INSURANCE_ADJUSTMENT,
+        string rawClinicianName = "Raw clin name")
     {
         return PaymentLineItem.GeneratePaymentLineItem(
             "raw",
             clinician,
-            "Raw clin name",
+            rawClinicianName,
             paymentAmount,
             adjustmentAmount,
             code,

@@ -8,5 +8,6 @@ namespace PayrollBackendProject.Application.Interfaces.Services
         Task<List<UnappliedCode500ResponseDTO>> GetRejectedCode500Payments();
         Task<Guid> AddManualPayment(ManualPaymentRequestDTO dto, Guid userId);
         Task RejectCode500Payment(Guid id, Guid userId);
+        Task AssignClinician(Guid paymentLineItemId, Guid clinicianId, Guid userId);
     }
 }

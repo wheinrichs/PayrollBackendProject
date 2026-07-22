@@ -2,6 +2,7 @@
 using PayrollBackendProject.Application.Interfaces.Repository;
 using PayrollBackendProject.Application.Interfaces.Services;
 using PayrollBackendProject.Application.Mappings;
+using PayrollBackendProject.Domain.Constants;
 using PayrollBackendProject.Domain.Entity;
 using PayrollBackendProject.Domain.Enums;
 using PayrollBackendProject.Domain.Service;
@@ -62,6 +63,22 @@ namespace PayrollBackendProject.Application.Services
             payments = payments.Where(p =>
                 p.PaymentAdjustmentCode != Domain.Enums.PaymentAdjustmentCodeEnum.INSURANCE_TAKEBACK
             ).ToList();
+            List<PaymentLineItem> blockingSentinelPayments = payments
+                .Where(p => p.ClinicianId == null &&
+                            string.Equals(
+                                p.RawClinicianName?.Trim(),
+                                ProviderSentinelValues.UnassignedProviderSentinel,
+                                StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (blockingSentinelPayments.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Pay run cannot be executed: {blockingSentinelPayments.Count} payment(s) have provider " +
+                    $"\"{ProviderSentinelValues.UnassignedProviderSentinel}\" and have not yet been manually " +
+                    "assigned to a clinician. Resolve these on the Unresolved Payments page before running payroll.");
+            }
+
             // TODO think about if this is the right behavior - right now you are filtering out payments that are in the system but have no clinician entity - is this right? Do we want to include these in the payrun?
             payments = payments.Where(p => p.ClinicianId != null).ToList();
             PayRun payRun = PayRun.GeneratePayRun(start, end);

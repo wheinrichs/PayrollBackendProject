@@ -1,4 +1,6 @@
-﻿namespace PayrollBackendProject.Domain.Entity
+﻿using PayrollBackendProject.Domain.Constants;
+
+namespace PayrollBackendProject.Domain.Entity
 {
     public class Clinician
     {
@@ -63,6 +65,12 @@
             if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
             {
                 throw new ArgumentException("Invalid name");
+            }
+
+            string fullName = $"{firstName.Trim()} {lastName.Trim()}";
+            if (string.Equals(fullName, ProviderSentinelValues.UnassignedProviderSentinel, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"Clinician name cannot be the reserved value \"{ProviderSentinelValues.UnassignedProviderSentinel}\".");
             }
         }
 

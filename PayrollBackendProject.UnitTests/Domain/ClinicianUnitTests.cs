@@ -151,4 +151,32 @@ public class ClinicianUnitTests
         Clinician testClinician = new(firstNameOriignal, lastNameOriginal, email, psychToday, costShareOriginal);
         Assert.Throws<ArgumentException>(() => testClinician.UpdateCoreInformation(firstName, lastName, true, costShare));
     }
+
+    /*
+    Test that a clinician can never be created with the reserved "!SELECT PROVIDER" sentinel name,
+    including case-insensitive and whitespace variants
+    */
+    [Theory]
+    [InlineData("!SELECT", "PROVIDER")]
+    [InlineData("!select", "provider")]
+    [InlineData(" !Select ", " Provider ")]
+    public void Constructor_ShouldThrowArgumentException_WhenNameIsProviderSentinel(string firstName, string lastName)
+    {
+        string email = "winston.heinrichs@example.com";
+
+        Assert.Throws<ArgumentException>(() => new Clinician(firstName, lastName, email, true, 0.8));
+        Assert.Throws<ArgumentException>(() => new Clinician(firstName, lastName, email));
+    }
+
+    /*
+    Test that a clinician can never be updated to have the reserved "!SELECT PROVIDER" sentinel name
+    */
+    [Fact]
+    public void UpdateCoreInformation_ShouldThrowArgumentException_WhenNameIsProviderSentinel()
+    {
+        string email = "winston.heinrichs@example.com";
+        Clinician testClinician = new("Winston", "Heinrichs", email, true, 0.8);
+
+        Assert.Throws<ArgumentException>(() => testClinician.UpdateCoreInformation("!SELECT", "PROVIDER", true, 0.8));
+    }
 }

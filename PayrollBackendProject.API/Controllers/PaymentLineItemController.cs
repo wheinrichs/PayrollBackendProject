@@ -55,6 +55,29 @@ namespace PayrollBackendProject.API.Controllers
             }
         }
 
+        [HttpPost("{id}/assign-clinician")]
+        public async Task<IActionResult> AssignClinician(Guid id, [FromBody] AssignClinicianRequestDTO request)
+        {
+            try
+            {
+                Guid userId = TokenParser.RetrieveGuidFromToken(User);
+                await _service.AssignClinician(id, request.ClinicianId, userId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpPost("takebacks/{id}/reject")]
         public async Task<IActionResult> RejectCode500Payment(Guid id)
         {

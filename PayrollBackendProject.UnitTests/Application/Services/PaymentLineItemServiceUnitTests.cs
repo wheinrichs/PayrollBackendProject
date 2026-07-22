@@ -331,4 +331,67 @@ public class PaymentLineItemServiceUnitTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.RejectCode500Payment(payment.Id, Guid.NewGuid()));
     }
+
+    /*
+    Validate that AssignClinician sets the clinician on the payment, logs the update, and saves changes
+    */
+    [Fact]
+    public async Task AssignClinician_ShouldSetClinician_AndLogAndSave()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        var ehrUser = new EHRUser("A", "B", "a@b.com");
+        var batch = new ImportBatch("file.csv", "fp-assign-batch");
+        var payment = PaymentLineItem.GeneratePaymentLineItem(
+            "raw", null, "!SELECT PROVIDER", 100m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT,
+            DateTime.UtcNow.AddDays(-10), "P001", "90837", "PAY-ASSIGN-01", "CIGNA",
+            ehrUser, batch, 1, "fp-assign-unique", DateTime.UtcNow.AddDays(-5), null);
+        var clinician = new Clinician("Jane", "Smith", "jane@clinic.com");
+
+        _paymentRepo.Setup(r => r.GetPaymentLineItemById(payment.Id)).ReturnsAsync(payment);
+        _clinicianRepo.Setup(r => r.GetClinicianByID(clinician.ID)).ReturnsAsync(clinician);
+
+        await service.AssignClinician(payment.Id, clinician.ID, userId);
+
+        Assert.Equal(clinician.ID, payment.ClinicianId);
+        Assert.Equal(PaymentLineItemStatusEnum.VALID, payment.PaymentLineItemStatus);
+        _auditLogRepo.Verify(r => r.AddAuditLog(It.IsAny<AuditLog>()), Times.Once);
+        _unitOfWork.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    /*
+    Validate that AssignClinician throws KeyNotFoundException when the payment does not exist
+    */
+    [Fact]
+    public async Task AssignClinician_WhenPaymentNotFound_ShouldThrowKeyNotFoundException()
+    {
+        var service = CreateService();
+        var paymentId = Guid.NewGuid();
+
+        _paymentRepo.Setup(r => r.GetPaymentLineItemById(paymentId)).ReturnsAsync((PaymentLineItem?)null);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.AssignClinician(paymentId, Guid.NewGuid(), Guid.NewGuid()));
+    }
+
+    /*
+    Validate that AssignClinician throws KeyNotFoundException when the clinician does not exist
+    */
+    [Fact]
+    public async Task AssignClinician_WhenClinicianNotFound_ShouldThrowKeyNotFoundException()
+    {
+        var service = CreateService();
+        var ehrUser = new EHRUser("A", "B", "a@b.com");
+        var batch = new ImportBatch("file.csv", "fp-assign-missing-clinician-batch");
+        var payment = PaymentLineItem.GeneratePaymentLineItem(
+            "raw", null, "!SELECT PROVIDER", 100m, 0m, PaymentAdjustmentCodeEnum.INSURANCE_PAYMENT,
+            DateTime.UtcNow.AddDays(-10), "P001", "90837", "PAY-ASSIGN-02", "CIGNA",
+            ehrUser, batch, 1, "fp-assign-missing-clinician-unique", DateTime.UtcNow.AddDays(-5), null);
+        var missingClinicianId = Guid.NewGuid();
+
+        _paymentRepo.Setup(r => r.GetPaymentLineItemById(payment.Id)).ReturnsAsync(payment);
+        _clinicianRepo.Setup(r => r.GetClinicianByID(missingClinicianId)).ReturnsAsync((Clinician?)null);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.AssignClinician(payment.Id, missingClinicianId, Guid.NewGuid()));
+    }
 }
