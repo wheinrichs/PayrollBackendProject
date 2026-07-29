@@ -57,5 +57,14 @@ namespace PayrollBackendProject.Domain.Entity
         {
             UserStatus = state;
         }
+
+        public void UpdateRole(RoleEnum newRole)
+        {
+            if (newRole == RoleEnum.CLINICIAN && ClinicianId == null)
+            {
+                throw new InvalidOperationException("Cannot assign the CLINICIAN role to a user with no linked clinician record.");
+            }
+            Role = newRole;
+        }
     }
 }

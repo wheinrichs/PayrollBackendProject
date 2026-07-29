@@ -15,13 +15,15 @@ namespace PayrollBackendProject.Application.Services
         private readonly ITokenService _tokenService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
-        public AuthService(IUserAccountRepository repository, ITokenService tokenService, IUnitOfWork unitOfWork, IClinicianRepository clinicianRepo, IPasswordHasher passwordHasher)
+        private readonly IAuditLogRepository _auditLogRepo;
+        public AuthService(IUserAccountRepository repository, ITokenService tokenService, IUnitOfWork unitOfWork, IClinicianRepository clinicianRepo, IPasswordHasher passwordHasher, IAuditLogRepository auditLogRepo)
         {
             _repo = repository;
             _tokenService = tokenService;
             _unitOfWork = unitOfWork;
             _clinicianRepo = clinicianRepo;
             _passwordHasher = passwordHasher;
+            _auditLogRepo = auditLogRepo;
         }
 
         public async Task<LoginResponseDTO?> Login(string username, string password)
@@ -107,6 +109,34 @@ namespace PayrollBackendProject.Application.Services
         {
             List<UserAccount> userAccounts = await _repo.GetPendingUserAccounts();
             return userAccounts.Select(u => UserAccountMapper.UserAccountToDto(u)).ToList();
+        }
+
+        public async Task<List<UserAccountDTO>> GetAllUserAccounts()
+        {
+            List<UserAccount> userAccounts = await _repo.GetAllUserAccounts();
+            return userAccounts.Select(u => UserAccountMapper.UserAccountToDto(u)).ToList();
+        }
+
+        public async Task UpdateUserRole(Guid id, RoleEnum newRole, Guid actorId)
+        {
+            if (id == actorId)
+            {
+                throw new InvalidOperationException("You cannot change your own role.");
+            }
+
+            UserAccount? existingUser = await _repo.GetById(id);
+            if (existingUser == null)
+            {
+                throw new KeyNotFoundException("User account not found.");
+            }
+
+            string oldRole = existingUser.Role.ToString();
+            existingUser.UpdateRole(newRole);
+
+            // Role changes are permission changes so record who changed what in the audit log
+            AuditLog roleChangeLog = new("User Account", existingUser.Id, AuditLogActionEnum.UPDATED, oldRole, newRole.ToString(), actorId.ToString());
+            await _auditLogRepo.AddAuditLog(roleChangeLog);
+            await _unitOfWork.SaveChangesAsync();
         }
     }
 }
