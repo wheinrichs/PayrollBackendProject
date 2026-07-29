@@ -23,3 +23,5 @@ docker-compose.override.yml
 
 # Uploads folder
 uploads/
+
+notes.txt
