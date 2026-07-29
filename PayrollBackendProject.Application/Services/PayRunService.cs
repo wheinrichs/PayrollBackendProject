@@ -81,7 +81,7 @@ namespace PayrollBackendProject.Application.Services
 
             // TODO think about if this is the right behavior - right now you are filtering out payments that are in the system but have no clinician entity - is this right? Do we want to include these in the payrun?
             payments = payments.Where(p => p.ClinicianId != null).ToList();
-            PayRun payRun = PayRun.GeneratePayRun(start, end);
+            PayRun payRun = PayRun.GeneratePayRun(start, end, PayRunMapper.DTOToPaymentDate(request));
             List<PaymentSnapshot> snapshotPayments = payments.Select(p => PaymentSnapshot.CreateSnapshot(p, payRun)).ToList();
 
             // Apply the requested portion (full or partial) of each outstanding 500-code balance to this pay run

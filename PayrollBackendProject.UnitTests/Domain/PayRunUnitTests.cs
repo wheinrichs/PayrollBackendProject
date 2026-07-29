@@ -283,6 +283,50 @@ public class PayRunUnitTests
     }
 
     /*
+    Test that an explicitly provided payment date is stored on the pay run
+    */
+    [Fact]
+    public void GeneratePayRun_ShouldUseProvidedPaymentDate()
+    {
+        var paymentDate = DateTime.SpecifyKind(new DateTime(2026, 8, 15), DateTimeKind.Utc);
+
+        var payRun = PayRun.GeneratePayRun(DateTime.UtcNow.AddDays(-5), DateTime.UtcNow.AddDays(-1), paymentDate);
+
+        Assert.Equal(paymentDate, payRun.PaymentDate);
+    }
+
+    /*
+    Test that omitting the payment date defaults to the next 1st or 15th
+    */
+    [Fact]
+    public void GeneratePayRun_ShouldDefaultPaymentDate_WhenNotProvided()
+    {
+        var payRun = PayRun.GeneratePayRun(DateTime.UtcNow.AddDays(-5), DateTime.UtcNow.AddDays(-1));
+
+        Assert.Equal(PayRun.NextDefaultPaymentDate(DateTime.UtcNow), payRun.PaymentDate);
+    }
+
+    /*
+    Test the default payment date rule: the next 1st or 15th strictly after the given date
+    */
+    [Theory]
+    [InlineData(2026, 7, 28, 2026, 8, 1)]   // late month -> 1st of next month
+    [InlineData(2026, 7, 10, 2026, 7, 15)]  // early month -> 15th of same month
+    [InlineData(2026, 7, 1, 2026, 7, 15)]   // on the 1st -> the upcoming 15th
+    [InlineData(2026, 7, 15, 2026, 8, 1)]   // on the 15th -> 1st of next month
+    [InlineData(2026, 12, 20, 2027, 1, 1)]  // year rollover
+    public void NextDefaultPaymentDate_ShouldPickClosestFuture1stOr15th(
+        int year, int month, int day, int expectedYear, int expectedMonth, int expectedDay)
+    {
+        var from = DateTime.SpecifyKind(new DateTime(year, month, day), DateTimeKind.Utc);
+
+        var result = PayRun.NextDefaultPaymentDate(from);
+
+        Assert.Equal(new DateTime(expectedYear, expectedMonth, expectedDay), result.Date);
+        Assert.Equal(DateTimeKind.Utc, result.Kind);
+    }
+
+    /*
     TODO ADD IN A TEST THAT TESTS THE TOTAL AMOUNT FROM THE STATEMENTS MATCHES THE TOTAL AMOUNT FROM THE PAYRUN
     */
 }

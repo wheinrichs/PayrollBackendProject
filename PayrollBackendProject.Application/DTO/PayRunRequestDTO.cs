@@ -29,6 +29,14 @@ namespace PayrollBackendProject.Application.DTO
         public DateTime EndDate { get; set; }
 
         /// <summary>
+        /// Gets or sets the date the pay period will be paid out to clinicians.
+        /// </summary>
+        /// <remarks>
+        /// Optional. When omitted, defaults to the next 1st or 15th of the month, whichever comes first.
+        /// </remarks>
+        public DateTime? PaymentDate { get; set; }
+
+        /// <summary>
         /// Gets or sets whether a flat Psych Today payout should be added to every eligible clinician's pay statement.
         /// </summary>
         /// <remarks>

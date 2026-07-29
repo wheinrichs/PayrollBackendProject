@@ -27,6 +27,7 @@ namespace PayrollBackendProject.Application.Mappings
                 clinicianDTO,
                 lineItems,
                 payRunId,
+                statement.PayRun.PaymentDate,
                 statement.TotalPayment,
                 statement.CostShareAdjustedPayment,
                 statement.TotalAdjustment,

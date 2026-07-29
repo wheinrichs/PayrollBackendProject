@@ -34,7 +34,9 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              // Expose the filename of file downloads to browser javascript
+              .WithExposedHeaders("Content-Disposition");
     });
 });
 
@@ -132,6 +134,7 @@ builder.Services.AddScoped<IPayRunService, PayRunService>();
 builder.Services.AddScoped<PayrollCalculator, PayrollCalculator>();
 builder.Services.AddScoped<IPaymentLineItemService, PaymentLineItemService>();
 builder.Services.AddScoped<IBusinessPayReportService, BusinessPayReportService>();
+builder.Services.AddScoped<IStatementExportService, StatementExportService>();
 
 // Add service for tokens
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
