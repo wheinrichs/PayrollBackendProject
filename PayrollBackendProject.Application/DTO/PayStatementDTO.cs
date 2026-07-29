@@ -32,6 +32,11 @@ namespace PayrollBackendProject.Application.DTO
         public Guid PayRun { get; private set; }
 
         /// <summary>
+        /// Gets the date the pay run will be paid out to clinicians.
+        /// </summary>
+        public DateTime PayRunPaymentDate { get; private set; }
+
+        /// <summary>
         /// Gets the total payment amount before adjustments.
         /// </summary>
         public decimal TotalPayment { get; private set; }
@@ -86,6 +91,7 @@ namespace PayrollBackendProject.Application.DTO
             ClinicianResponseDTO clinician,
             List<PaymentLineItemDTO> lineItems,
             Guid payRun,
+            DateTime payRunPaymentDate,
             decimal totalPayment,
             decimal costShareAdjustedPayment,
             decimal totalAdjustment,
@@ -101,6 +107,7 @@ namespace PayrollBackendProject.Application.DTO
             Clinician = clinician;
             LineItems = lineItems;
             PayRun = payRun;
+            PayRunPaymentDate = payRunPaymentDate;
             TotalPayment = totalPayment;
             CostShareAdjustedPayment = costShareAdjustedPayment;
             TotalAdjustment = totalAdjustment;

@@ -8,5 +8,6 @@ namespace PayrollBackendProject.Application.Interfaces.Repository
         public Task<UserAccount?> GetById(Guid id);
         public Task SignUp(UserAccount userAccount);
         public Task<List<UserAccount>> GetPendingUserAccounts();
+        public Task<List<UserAccount>> GetAllUserAccounts();
     }
 }

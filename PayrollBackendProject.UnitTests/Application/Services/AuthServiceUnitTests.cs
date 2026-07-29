@@ -160,19 +160,108 @@ public class AuthServiceUnitTests
     }
 
 
+    /*
+    Validate that an admin can change another user's role and the change is audited
+    */
+    [Fact]
+    public async Task UpdateUserRole_ShouldChangeRole_AndWriteAuditLog()
+    {
+        Mock<IUserAccountRepository> mockRepo = new();
+        Mock<IAuditLogRepository> mockAudit = new();
+        Mock<IUnitOfWork> mockUow = new();
+        var user = UserAccount.GenerateUserAccount("a@a.com", "pw", "A", "B", RoleEnum.BACKEND, null);
+        mockRepo.Setup(r => r.GetById(user.Id)).ReturnsAsync(user);
+
+        var service = CreateService(mockRepo: mockRepo, mockUow: mockUow, auditRepo: mockAudit);
+
+        await service.UpdateUserRole(user.Id, RoleEnum.ADMIN, Guid.NewGuid());
+
+        Assert.Equal(RoleEnum.ADMIN, user.Role);
+        mockAudit.Verify(a => a.AddAuditLog(It.Is<AuditLog>(l =>
+            l.Action == AuditLogActionEnum.UPDATED &&
+            l.OriginalData == "BACKEND" &&
+            l.UpdatedData == "ADMIN")), Times.Once);
+        mockUow.Verify(u => u.SaveChangesAsync(), Times.Once);
+    }
+
+    /*
+    Validate that an admin cannot change their own role
+    */
+    [Fact]
+    public async Task UpdateUserRole_ShouldThrow_WhenChangingOwnRole()
+    {
+        var service = CreateService();
+        var userId = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UpdateUserRole(userId, RoleEnum.BACKEND, userId));
+    }
+
+    /*
+    Validate that changing a role throws when the user does not exist
+    */
+    [Fact]
+    public async Task UpdateUserRole_ShouldThrow_WhenUserNotFound()
+    {
+        Mock<IUserAccountRepository> mockRepo = new();
+        mockRepo.Setup(r => r.GetById(It.IsAny<Guid>())).ReturnsAsync((UserAccount?)null);
+
+        var service = CreateService(mockRepo: mockRepo);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.UpdateUserRole(Guid.NewGuid(), RoleEnum.ADMIN, Guid.NewGuid()));
+    }
+
+    /*
+    Validate that a user with no linked clinician record cannot be given the CLINICIAN role
+    */
+    [Fact]
+    public async Task UpdateUserRole_ShouldThrow_WhenAssigningClinicianRoleWithoutClinicianLink()
+    {
+        Mock<IUserAccountRepository> mockRepo = new();
+        var user = UserAccount.GenerateUserAccount("a@a.com", "pw", "A", "B", RoleEnum.BACKEND, null);
+        mockRepo.Setup(r => r.GetById(user.Id)).ReturnsAsync(user);
+
+        var service = CreateService(mockRepo: mockRepo);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UpdateUserRole(user.Id, RoleEnum.CLINICIAN, Guid.NewGuid()));
+    }
+
+    /*
+    Validate that a user with a linked clinician record can be given the CLINICIAN role
+    */
+    [Fact]
+    public async Task UpdateUserRole_ShouldAllowClinicianRole_WhenClinicianLinked()
+    {
+        Mock<IUserAccountRepository> mockRepo = new();
+        var clinician = new Clinician("A", "B", "a@a.com");
+        var user = UserAccount.GenerateUserAccount("a@a.com", "pw", "A", "B", RoleEnum.CLINICIAN, clinician);
+        user.UpdateRole(RoleEnum.BACKEND);
+        mockRepo.Setup(r => r.GetById(user.Id)).ReturnsAsync(user);
+
+        var service = CreateService(mockRepo: mockRepo);
+
+        await service.UpdateUserRole(user.Id, RoleEnum.CLINICIAN, Guid.NewGuid());
+
+        Assert.Equal(RoleEnum.CLINICIAN, user.Role);
+    }
+
     private AuthService CreateService(
         Mock<IUserAccountRepository>? mockRepo = null,
         Mock<ITokenService>? mockToken = null,
         Mock<IUnitOfWork>? mockUow = null,
         Mock<IClinicianRepository>? clinicianRepo = null,
-        Mock<IPasswordHasher>? passwordHasher = null)
+        Mock<IPasswordHasher>? passwordHasher = null,
+        Mock<IAuditLogRepository>? auditRepo = null)
     {
         return new AuthService(
             (mockRepo ?? new Mock<IUserAccountRepository>()).Object,
             (mockToken ?? new Mock<ITokenService>()).Object,
             (mockUow ?? new Mock<IUnitOfWork>()).Object,
             (clinicianRepo ?? new Mock<IClinicianRepository>()).Object,
-            (passwordHasher ?? new Mock<IPasswordHasher>()).Object
+            (passwordHasher ?? new Mock<IPasswordHasher>()).Object,
+            (auditRepo ?? new Mock<IAuditLogRepository>()).Object
         );
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PayrollBackendProject.API.Helper;
 using PayrollBackendProject.Application.DTO;
 using PayrollBackendProject.Application.Interfaces.Services;
 using PayrollBackendProject.Domain.Enums;
@@ -97,6 +98,52 @@ namespace PayrollBackendProject.API.Controllers
         {
             await _service.DisableUserAccount(id);
             return NoContent();
+        }
+
+        /// <summary>
+        /// Retrieves all user accounts for administration.
+        /// </summary>
+        /// <response code="200">Returns the list of all user accounts.</response>
+        [Authorize(Policy = "ApprovedAdminOnly")]
+        [HttpGet("users")]
+        public async Task<ActionResult<List<UserAccountDTO>>> GetAllUsers()
+        {
+            return Ok(await _service.GetAllUserAccounts());
+        }
+
+        /// <summary>
+        /// Changes another user's role. Admins cannot change their own role.
+        /// </summary>
+        /// <param name="id">The unique identifier of the user to change.</param>
+        /// <param name="request">The new role for the user.</param>
+        /// <response code="204">The role was successfully changed.</response>
+        /// <response code="400">If the role is invalid or the change is not allowed.</response>
+        /// <response code="404">If the user does not exist.</response>
+        [Authorize(Policy = "ApprovedAdminOnly")]
+        [HttpPut("/users/{id}/role")]
+        public async Task<ActionResult> UpdateUserRole(Guid id, UpdateUserRoleRequestDTO request)
+        {
+            if (!Enum.TryParse<RoleEnum>(request.Role, ignoreCase: true, out var role))
+            {
+                return BadRequest($"Invalid role: {request.Role}");
+            }
+
+            try
+            {
+                // Extract the acting admin's user ID from the authentication token
+                Guid actorId = TokenParser.RetrieveGuidFromToken(User);
+
+                await _service.UpdateUserRole(id, role, actorId);
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
     }
 }

@@ -8,7 +8,9 @@ namespace PayrollBackendProject.Application.Interfaces.Services
         public Task<LoginResponseDTO?> Login(string username, string password);
         public Task<SignUpResponseDTO?> SignUp(SignUpRequestDTO newUser, RoleEnum role);
         public Task<List<UserAccountDTO>> GetPendingUserAccounts();
+        public Task<List<UserAccountDTO>> GetAllUserAccounts();
         public Task ApprovePendingUserAccount(Guid id);
         public Task DisableUserAccount(Guid id);
+        public Task UpdateUserRole(Guid id, RoleEnum newRole, Guid actorId);
     }
 }

@@ -28,6 +28,11 @@ namespace PayrollBackendProject.Application.DTO
         public DateTime EndDate { get; private set; }
 
         /// <summary>
+        /// Gets the date the pay period will be paid out to clinicians.
+        /// </summary>
+        public DateTime PaymentDate { get; private set; }
+
+        /// <summary>
         /// Gets the total applied payment amount before adjudication.
         /// </summary>
         public decimal TotalApplied { get; private set; }
@@ -100,6 +105,7 @@ namespace PayrollBackendProject.Application.DTO
         /// <param name="id">The unique identifier of the pay run.</param>
         /// <param name="startDate">The start date of the pay run period.</param>
         /// <param name="endDate">The end date of the pay run period.</param>
+        /// <param name="paymentDate">The date the pay period will be paid out.</param>
         /// <param name="totalApplied">The total applied payment amount.</param>
         /// <param name="totalAdjudicated">The total adjudicated payment amount.</param>
         /// <param name="statementTotals">The net payout to all clinicians after cost share and deductions.</param>
@@ -115,6 +121,7 @@ namespace PayrollBackendProject.Application.DTO
             Guid id,
             DateTime startDate,
             DateTime endDate,
+            DateTime paymentDate,
             decimal totalApplied,
             decimal totalAdjudicated,
             decimal grossPaymentTotal,
@@ -130,6 +137,7 @@ namespace PayrollBackendProject.Application.DTO
             Id = id;
             StartDate = startDate;
             EndDate = endDate;
+            PaymentDate = paymentDate;
             TotalApplied = totalApplied;
             TotalAdjudicated = totalAdjudicated;
             GrossPaymentTotal = grossPaymentTotal;

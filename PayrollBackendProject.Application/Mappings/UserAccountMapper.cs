@@ -28,7 +28,7 @@ namespace PayrollBackendProject.Application.Mappings
 
         public static UserAccountDTO UserAccountToDto(UserAccount account)
         {
-            return new UserAccountDTO(account.Id, account.Email, account.Role.ToString(), account.FirstName, account.LastName, account.UserStatus.ToString());
+            return new UserAccountDTO(account.Id, account.Email, account.Role.ToString(), account.FirstName, account.LastName, account.UserStatus.ToString(), account.ClinicianId);
         }
     }
 }

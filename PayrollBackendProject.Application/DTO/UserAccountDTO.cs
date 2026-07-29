@@ -42,6 +42,11 @@ namespace PayrollBackendProject.Application.DTO
         public string UserStatus { get; private set; } = string.Empty;
 
         /// <summary>
+        /// The linked clinician record ID, if the user has clinician data.
+        /// </summary>
+        public Guid? ClinicianId { get; private set; }
+
+        /// <summary>
         /// Constructor for the user account DTO
         /// </summary>
         /// <param name="userId">User account ID</param>
@@ -50,13 +55,15 @@ namespace PayrollBackendProject.Application.DTO
         /// <param name="firstName">User account first name</param>
         /// <param name="lastName">User account last name</param>
         /// <param name="userStatus">Status of the current user account.</param>
+        /// <param name="clinicianId">The linked clinician record ID, if any.</param>
         public UserAccountDTO (
             Guid userId,
             string email,
             string role,
             string firstName,
             string lastName,
-            string userStatus)
+            string userStatus,
+            Guid? clinicianId = null)
         {
             UserId = userId;
             Email = email;
@@ -64,6 +71,7 @@ namespace PayrollBackendProject.Application.DTO
             FirstName = firstName;
             LastName = lastName;
             UserStatus = userStatus;
+            ClinicianId = clinicianId;
         }
     }
 }

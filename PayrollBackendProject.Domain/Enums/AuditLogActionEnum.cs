@@ -5,6 +5,7 @@
         CREATED = 0,
         UPDATED = 1,
         APPROVED = 2,
-        REJECTED = 3
+        REJECTED = 3,
+        EXPORTED = 4
     }
 }

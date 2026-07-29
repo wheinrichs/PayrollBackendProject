@@ -24,14 +24,17 @@ namespace PayrollBackendProject.API.Controllers
     public class PayRunController : ControllerBase
     {
         private readonly IPayRunService _service;
+        private readonly IStatementExportService _exportService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PayRunController"/> class.
         /// </summary>
         /// <param name="payRunService">Service responsible for executing and managing pay runs.</param>
-        public PayRunController(IPayRunService payRunService)
+        /// <param name="statementExportService">Service responsible for exporting approved pay statements.</param>
+        public PayRunController(IPayRunService payRunService, IStatementExportService statementExportService)
         {
             _service = payRunService;
+            _exportService = statementExportService;
         }
 
         /// <summary>
@@ -96,6 +99,36 @@ namespace PayrollBackendProject.API.Controllers
         {
             List<PayStatementDTO> response = await _service.RetrievePayStatementsForRun(payRunGuid);
             return Ok(response);
+        }
+
+        /// <summary>
+        /// Exports all approved pay statements for a pay run as a single CSV file.
+        /// </summary>
+        /// <param name="payRunGuid">The unique identifier of the pay run.</param>
+        /// <returns>A CSV file containing one row per line item across all approved statements.</returns>
+        /// <response code="200">Returns the CSV file.</response>
+        /// <response code="400">If the pay run has no approved statements.</response>
+        /// <response code="404">If the pay run does not exist.</response>
+        [HttpGet("{payRunGuid}/statements/export")]
+        public async Task<IActionResult> ExportApprovedStatements(Guid payRunGuid)
+        {
+            try
+            {
+                // Extract the current user ID from the authentication token
+                Guid currentUserGuid = TokenParser.RetrieveGuidFromToken(User);
+
+                StatementExportResultDTO result = await _exportService.ExportApprovedStatementsCsv(payRunGuid, currentUserGuid);
+
+                return File(result.Content, "text/csv", result.FileName);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
         }
 
         /// <summary>
